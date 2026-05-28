@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "825392939910",
+    "project_id": "project-ta-c6051",
+    "storage_bucket": "project-ta-c6051.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:825392939910:android:75c56ccbd134495e2c6207",
+        "android_client_info": {
+          "package_name": "com.example.project_ta"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQTP3TyLYXCWybZUzwz4OmydQeC5RNbrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
