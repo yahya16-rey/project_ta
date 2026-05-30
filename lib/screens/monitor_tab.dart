@@ -6,6 +6,8 @@ import 'dart:math';
 import '../theme/theme.dart';
 import '../providers/jamu_provider.dart';
 import '../models/jamu_models.dart';
+import 'temperature_history_screen.dart';
+
 
 class MonitorTab extends StatelessWidget {
   const MonitorTab({Key? key}) : super(key: key);
@@ -22,6 +24,25 @@ class MonitorTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header Monitoring
+              Padding(
+                padding: const EdgeInsets.only(bottom: 24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Monitoring Suhu',
+                      style: JamuTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Pantau kondisi mesin boiler Anda secara real-time.',
+                      style: JamuTheme.bodyMedium.copyWith(color: JamuTheme.textLight, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+
               // 1. Large Circular Ring Gauge
               Center(
                 child: _buildCircularGauge(temp, status),
@@ -57,7 +78,7 @@ class MonitorTab extends StatelessWidget {
               const SizedBox(height: 24),
 
               // 4. Riwayat Update List
-              _buildUpdateHistory(provider),
+              _buildUpdateHistory(context, provider),
             ],
           ),
         );
@@ -384,7 +405,7 @@ class MonitorTab extends StatelessWidget {
     return peakIdx;
   }
 
-  Widget _buildUpdateHistory(JamuProvider provider) {
+  Widget _buildUpdateHistory(BuildContext context, JamuProvider provider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -396,7 +417,12 @@ class MonitorTab extends StatelessWidget {
               style: JamuTheme.titleMedium.copyWith(fontSize: 16),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const TemperatureHistoryScreen()),
+                );
+              },
               child: Text(
                 'LIHAT SEMUA',
                 style: GoogleFonts.plusJakartaSans(

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'providers/jamu_provider.dart';
+import 'providers/auth_provider.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/login_screen.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -21,14 +23,15 @@ void main() async {
     print("App will run in local simulation mode.");
   }
 
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => JamuProvider()),
-      ],
-      child: const JamuApp(),
-    ),
-  );
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AuthProvider()),
+          ChangeNotifierProvider(create: (_) => JamuProvider()),
+        ],
+        child: const JamuApp(),
+      ),
+    );
 }
 
 class JamuApp extends StatelessWidget {
@@ -43,7 +46,14 @@ class JamuApp extends StatelessWidget {
         primarySwatch: Colors.green,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: const DashboardScreen(),
+      home: Consumer<AuthProvider>(
+        builder: (context, auth, _) {
+          if (auth.isAuthenticated) {
+            return const DashboardScreen();
+          }
+          return const LoginScreen();
+        },
+      ),
     );
   }
 }

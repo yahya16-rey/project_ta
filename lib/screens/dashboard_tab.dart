@@ -6,6 +6,8 @@ import 'dart:math';
 import '../theme/theme.dart';
 import '../providers/jamu_provider.dart';
 import '../models/jamu_models.dart';
+import 'activity_history_screen.dart';
+
 
 class DashboardTab extends StatelessWidget {
   const DashboardTab({Key? key}) : super(key: key);
@@ -81,7 +83,7 @@ class DashboardTab extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Halo, Pemilik\nJamu!',
+                'Halo, POS Jamu!',
                 style: GoogleFonts.outfit(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -236,12 +238,16 @@ class DashboardTab extends StatelessWidget {
           const SizedBox(height: 12),
 
           // Revenue Value
-          Text(
-            currencyFormat.format(revenue).replaceAll(',', '.'),
-            style: GoogleFonts.outfit(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: JamuTheme.textPrimary,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              currencyFormat.format(revenue).replaceAll(',', '.'),
+              style: GoogleFonts.outfit(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: JamuTheme.textPrimary,
+              ),
             ),
           ),
           Text(
@@ -286,18 +292,26 @@ class DashboardTab extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Text(
-                  'Aktivitas Terkini',
-                  style: JamuTheme.titleMedium.copyWith(fontSize: 20),
-                ),
-              ],
+            Text(
+              'Aktivitas Terkini',
+              style: JamuTheme.titleMedium.copyWith(fontSize: 20),
             ),
-            const Icon(
-              Icons.history_rounded,
-              color: JamuTheme.textSecondary,
-              size: 22,
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ActivityHistoryScreen()),
+                );
+              },
+              child: Text(
+                'LIHAT SEMUA',
+                style: GoogleFonts.plusJakartaSans(
+                  color: JamuTheme.primaryGreenLight,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  letterSpacing: 0.5,
+                ),
+              ),
             ),
           ],
         ),

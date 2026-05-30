@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/theme.dart';
 import '../providers/jamu_provider.dart';
+import '../providers/auth_provider.dart';
 import 'dashboard_tab.dart';
 import 'monitor_tab.dart';
 import 'revenue_tab.dart';
@@ -41,29 +43,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           // Content Tab
           _tabs[_selectedIndex],
-
-          // Floating Action Button (Only show on Dashboard index 0)
-          if (_selectedIndex == 0)
-            Positioned(
-              right: 16,
-              bottom: 80, // Positioned right above the bottom navigation bar
-              child: FloatingActionButton(
-                onPressed: () {
-                  // Switch to Revenue Tab (Index 2)
-                  setState(() {
-                    _selectedIndex = 2;
-                  });
-                },
-                backgroundColor: JamuTheme.primaryGreen,
-                shape: const CircleBorder(),
-                elevation: 4,
-                child: const Icon(
-                  Icons.add_rounded,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-            ),
         ],
       ),
       bottomNavigationBar: _buildCustomBottomNavBar(),
@@ -71,112 +50,68 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   PreferredSizeWidget _buildAppBar() {
-    // Dynamic App Bar configurations depending on selected tab index
-    if (_selectedIndex == 1) {
-      // Monitor Tab App Bar
-      return AppBar(
-        title: Text(
-          'Monitoring Suhu Jamu',
-          style: GoogleFonts.outfit(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: JamuTheme.textPrimary,
-          ),
-        ),
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 18.0),
-          child: Container(
-            padding: const EdgeInsets.all(4),
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.healing_outlined,
-              color: JamuTheme.primaryGreen,
-              size: 22,
-            ),
-          ),
-        ),
-        leadingWidth: 42,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: JamuTheme.textPrimary),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 8),
-        ],
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      );
-    }
-
-    // Default: Jamu Herbal App Bar (Dashboard, Revenue, Profile)
+    final authProvider = Provider.of<AuthProvider>(context);
     return AppBar(
       title: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: JamuTheme.borderLight),
+              color: JamuTheme.lightMintBg,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
-              Icons.healing_outlined,
-              color: JamuTheme.primaryGreen,
-              size: 18,
+            child: Image.asset(
+              'assets/images/logo.png',
+              width: 28,
+              height: 28,
+              fit: BoxFit.cover,
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Text(
-            'Jamu Herbal',
+            'POS Jamu',
             style: GoogleFonts.outfit(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
               color: JamuTheme.textPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 22,
             ),
           ),
         ],
       ),
-      actions: [
-        if (_selectedIndex == 3) ...[
-          // Settings Gear action on Profile Screen
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, color: JamuTheme.textPrimary),
-            onPressed: () {},
-          ),
-        ] else ...[
-          // Bell & Profile image action on Dashboard & Revenue Screens
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: JamuTheme.textPrimary),
-            onPressed: () {},
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: JamuTheme.borderLight, width: 1.5),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.asset(
-                  'assets/images/owner_profile.png',
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const CircleAvatar(
-                      backgroundColor: JamuTheme.lightMintBg,
-                      child: Icon(Icons.person_rounded, size: 16, color: JamuTheme.primaryGreen),
-                    );
+      actions: _selectedIndex == 3
+          ? []
+          : [
+              Padding(
+                padding: const EdgeInsets.only(right: 16.0),
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedIndex = 3; // Pindah ke tab Profil
+                    });
                   },
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: JamuTheme.borderLight, width: 1.5),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: authProvider.userPhotoPath.startsWith('assets/')
+                          ? Image.asset(
+                              authProvider.userPhotoPath,
+                              fit: BoxFit.cover,
+                            )
+                          : Image.file(
+                              File(authProvider.userPhotoPath),
+                              fit: BoxFit.cover,
+                            ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        ]
-      ],
+            ],
       backgroundColor: Colors.transparent,
       elevation: 0,
     );

@@ -12,15 +12,22 @@ class JamuProvider with ChangeNotifier {
   double _targetTemperature = 32.5;
   String _lastUpdatedTime = "10:30 WIB";
   
-  double _totalMonthlyRevenue = 12450000.0;
-  double _revenuePercentageIncrease = 15.0;
-  double _stockLevel = 85.0; // 85%
-  int _transactionsCountToday = 42;
+  double _totalMonthlyRevenue = 0.0;
+  double _revenuePercentageIncrease = 0.0;
+  double _stockLevel = 100.0; // 100%
+  int _transactionsCountToday = 0;
   bool _isIotConnected = true;
 
   List<TemperatureReading> _tempHistory = [];
   List<TransactionData> _recentTransactions = [];
   List<ActivityLog> _recentActivities = [];
+  List<ProductMenu> _catalogMenu = [
+    ProductMenu(name: 'Kunyit Asam', price: 15000, imagePath: 'assets/images/jamu_kunyit_asam.png'),
+    ProductMenu(name: 'Beras Kencur', price: 18000, imagePath: 'assets/images/jamu_beras_kencur.png'),
+    ProductMenu(name: 'Temulawak', price: 16000, imagePath: 'assets/images/jamu_temulawak.png'),
+    ProductMenu(name: 'Jahe Merah', price: 20000, imagePath: 'assets/images/jamu_jahe_merah.png'),
+    ProductMenu(name: 'Gula Asem', price: 12000, imagePath: 'assets/images/jamu_gula_asem.png'),
+  ];
 
   bool _isFirebaseConnected = false;
   bool _isLoading = true;
@@ -38,6 +45,7 @@ class JamuProvider with ChangeNotifier {
   List<TemperatureReading> get tempHistory => _tempHistory;
   List<TransactionData> get recentTransactions => _recentTransactions;
   List<ActivityLog> get recentActivities => _recentActivities;
+  List<ProductMenu> get catalogMenu => _catalogMenu;
 
   bool get isFirebaseConnected => _isFirebaseConnected;
   bool get isLoading => _isLoading;
@@ -63,11 +71,11 @@ class JamuProvider with ChangeNotifier {
       if (Firebase.apps.isNotEmpty) {
         _setupFirebaseStreams();
       } else {
-        _startSimulation();
+        _setupEmptyState();
       }
     } catch (e) {
-      debugPrint('Failed to connect to Firebase, fallback to simulation mode: $e');
-      _startSimulation();
+      debugPrint('Failed to connect to Firebase, fallback to empty state: $e');
+      _setupEmptyState();
     }
   }
 
@@ -169,88 +177,32 @@ class JamuProvider with ChangeNotifier {
     }, onError: (e) => debugPrint('Error inventory stream: $e'));
   }
 
-  // Populate mock data and start simulated updates
-  void _startSimulation() {
+  // Set up clean local state without dummy data
+  void _setupEmptyState() {
     _isFirebaseConnected = false;
     _isLoading = false;
 
-    // Load initial mockup data
-    _totalMonthlyRevenue = 12450000.0;
-    _revenuePercentageIncrease = 15.0;
-    _stockLevel = 85.0;
-    _transactionsCountToday = 42;
-    _isIotConnected = true;
+    // Start with 0/empty data instead of mockups
+    _totalMonthlyRevenue = 0.0;
+    _revenuePercentageIncrease = 0.0;
+    _stockLevel = 100.0;
+    _transactionsCountToday = 0;
+    _isIotConnected = false;
 
-    // Mock Temperature History
-    _tempHistory = [
-      TemperatureReading(time: "10:30 WIB", temperature: 32.4, status: "Suhu Stabil"),
-      TemperatureReading(time: "10:15 WIB", temperature: 32.2, status: "Suhu Stabil"),
-      TemperatureReading(time: "10:00 WIB", temperature: 31.8, status: "Penyesuaian Api"),
-      TemperatureReading(time: "09:45 WIB", temperature: 32.1, status: "Suhu Stabil"),
-      TemperatureReading(time: "09:30 WIB", temperature: 30.5, status: "Inisiasi Proses"),
-    ];
+    _tempHistory = [];
+    _recentTransactions = [];
+    _recentActivities = [];
 
-    // Mock Transactions
-    _recentTransactions = [
-      TransactionData(id: "tx1", product: "Ekstrak Temulawak", timestamp: "14:20", quantity: 2, unit: "Botol", amount: 150000),
-      TransactionData(id: "tx2", product: "Jahe Merah Instan", timestamp: "12:05", quantity: 5, unit: "Sachet", amount: 75000),
-      TransactionData(id: "tx3", product: "Ekstrak Temulawak", timestamp: "Kemarin", quantity: 1, unit: "Botol", amount: 75000),
-    ];
-
-    // Mock Activities
-    _recentActivities = [
-      ActivityLog(id: "act1", type: "temp", title: "Suhu Stabil", description: "Semua sensor beroperasi normal", timestamp: "10:00"),
-      ActivityLog(id: "act2", type: "transaction", title: "Transaksi Baru", description: "Order #TRX-8829 Berhasil", timestamp: "09:45"),
-      ActivityLog(id: "act3", type: "temp", title: "Suhu Stabil", description: "Pengecekan rutin otomatis", timestamp: "09:00"),
-    ];
+    // Optional: Add one initial system log
+    _recentActivities.insert(0, ActivityLog(
+      id: "sys_1",
+      type: "temp",
+      title: "Sistem Dimulai",
+      description: "Menunggu koneksi IoT/Firebase",
+      timestamp: DateFormat('HH:mm').format(DateTime.now()),
+    ));
 
     notifyListeners();
-
-    // Simulated IoT timer: updates temperature slowly every 4 seconds
-    _simulationTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
-      double change = (_random.nextDouble() - 0.5) * 0.4;
-      double newTemp = double.parse((_boilerData.temperature + change).toStringAsFixed(1));
-
-      // Keep it within a realistic range
-      if (newTemp < 30.0) newTemp = 30.5;
-      if (newTemp > 35.0) newTemp = 34.5;
-
-      String status = "Suhu Stabil";
-      if (newTemp > 33.5) {
-        status = "Overheat Ringan";
-      } else if (newTemp < 31.0) {
-        status = "Penyesuaian Api";
-      }
-
-      _boilerData = BoilerData(temperature: newTemp, status: status);
-      _lastUpdatedTime = DateFormat('HH:mm').format(DateTime.now()) + " WIB";
-
-      // Append reading to temp history
-      _tempHistory.insert(0, TemperatureReading(
-        time: _lastUpdatedTime,
-        temperature: newTemp,
-        status: status,
-      ));
-      if (_tempHistory.length > 20) {
-        _tempHistory.removeLast();
-      }
-
-      // Randomly trigger auto-check activities
-      if (_random.nextDouble() < 0.15) {
-        _recentActivities.insert(0, ActivityLog(
-          id: "act_${DateTime.now().millisecondsSinceEpoch}",
-          type: "temp",
-          title: "Suhu Stabil",
-          description: _random.nextBool() ? "Pengecekan rutin otomatis" : "Semua sensor beroperasi normal",
-          timestamp: DateFormat('HH:mm').format(DateTime.now()),
-        ));
-        if (_recentActivities.length > 10) {
-          _recentActivities.removeLast();
-        }
-      }
-
-      notifyListeners();
-    });
   }
 
   // Method to add new POS Transaction
@@ -345,6 +297,13 @@ class JamuProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // Method to add dynamic product to POS catalog menu
+  void addProduct(String name, double price, String imagePath) {
+    _catalogMenu.add(ProductMenu(name: name, price: price, imagePath: imagePath));
+    notifyListeners();
+  }
+
+
   // Utility to seed initial dummy data to Cloud Firestore if connected
   Future<void> seedFirebaseInitialData() async {
     if (!_isFirebaseConnected) return;
@@ -418,7 +377,6 @@ class JamuProvider with ChangeNotifier {
       debugPrint("Failed to seed initial data: $e");
     }
   }
-
   @override
   void dispose() {
     _boilerSub?.cancel();

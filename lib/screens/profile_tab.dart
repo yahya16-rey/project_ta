@@ -1,103 +1,114 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../theme/theme.dart';
 import '../providers/jamu_provider.dart';
+import '../providers/auth_provider.dart';
+import 'edit_profile_screen.dart';
+import 'store_info_screen.dart';
+import 'security_screen.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<JamuProvider>(
-      builder: (context, provider, child) {
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
         return SingleChildScrollView(
-          padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 10.0, bottom: 90.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 10),
               
               // 1. Profile Picture with Edit Pencil Overlay
-              _buildProfileHeader(),
-              const SizedBox(height: 16),
+              _buildProfileHeader(context, authProvider),
+              const SizedBox(height: 20),
 
               // Name & Contact Info
               Text(
-                'Pemilik UMKM Jamu',
+                authProvider.userName,
                 style: GoogleFonts.outfit(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
                   color: JamuTheme.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'umkm.jamu@email.com',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  color: JamuTheme.textSecondary,
-                ),
+                '${authProvider.userEmail} • ${authProvider.userPhone}',
+                style: JamuTheme.bodyMedium.copyWith(color: JamuTheme.textSecondary),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 24),
 
-              // Premium Member badge
-              _buildPremiumBadge(),
-              const SizedBox(height: 28),
-
-              // 2. Settings Menu Items
+              // 2. Settings Menu List
               _buildMenuItem(
                 icon: Icons.storefront_outlined,
-                title: "Informasi Toko",
-                subtitle: "Detail operasional & alamat",
-                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: JamuTheme.textLight),
-                onTap: () {},
+                title: 'Informasi Toko',
+                subtitle: 'Atur detail bisnis Anda',
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: JamuTheme.textLight),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const StoreInfoScreen()),
+                  );
+                },
               ),
               const SizedBox(height: 12),
-              
+
               _buildMenuItem(
-                icon: Icons.sensors_rounded,
-                title: "Hubungkan Alat IoT",
-                subtitle: provider.isIotConnected ? "Arduino Uno connected" : "Disambungkan...",
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (provider.isIotConnected)
-                      const Icon(
-                        Icons.check_circle_outline_rounded,
-                        color: Colors.green,
-                        size: 20,
+                icon: Icons.security_rounded,
+                title: 'Keamanan & Privasi',
+                subtitle: 'Ganti password dan pengaturan akun',
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: JamuTheme.textLight),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SecurityScreen()),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+
+              // 3. Logout Button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    _showLogoutDialog(context);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: const BorderSide(color: JamuTheme.dangerRedText, width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: JamuTheme.cardRadius,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.logout_rounded, color: JamuTheme.dangerRedText, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Keluar Akun',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: JamuTheme.dangerRedText,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: JamuTheme.textLight),
-                  ],
+                    ],
+                  ),
                 ),
-                onTap: () {},
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
 
-              _buildMenuItem(
-                icon: Icons.help_outline_rounded,
-                title: "Bantuan & Dukungan",
-                subtitle: "FAQ & hubungi admin",
-                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: JamuTheme.textLight),
-                onTap: () {},
-              ),
-              const SizedBox(height: 24),
-
-              // 3. Dual Statistics Panel (Today's Transactions & Stock levels)
-              _buildStatsGrid(provider),
-              const SizedBox(height: 28),
-
-              // 4. Log out action button
-              _buildLogoutButton(context),
-              const SizedBox(height: 24),
-
-              // Version display label
+              // App Version
               Text(
                 'Versi Aplikasi 2.4.0-stable',
                 style: JamuTheme.caption.copyWith(color: JamuTheme.textLight, fontSize: 11),
               ),
+              const SizedBox(height: 40),
             ],
           ),
         );
@@ -105,7 +116,7 @@ class ProfileTab extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileHeader() {
+  Widget _buildProfileHeader(BuildContext context, AuthProvider authProvider) {
     return Center(
       child: Stack(
         children: [
@@ -126,22 +137,14 @@ class ProfileTab extends StatelessWidget {
             child: Container(
               width: 110,
               height: 110,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Color(0xFF0F5A41), // Deep green background fallback
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(60),
-                child: Image.asset(
-                  'assets/images/owner_profile.png',
+                color: const Color(0xFF0F5A41), // Deep green background fallback
+                image: DecorationImage(
+                  image: authProvider.userPhotoPath.startsWith('assets/')
+                      ? AssetImage(authProvider.userPhotoPath) as ImageProvider
+                      : FileImage(File(authProvider.userPhotoPath)),
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Icon(
-                      Icons.person_rounded,
-                      size: 55,
-                      color: Colors.white70,
-                    );
-                  },
                 ),
               ),
             ),
@@ -150,54 +153,32 @@ class ProfileTab extends StatelessWidget {
           Positioned(
             bottom: 4,
             right: 4,
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                color: Color(0xFF063A24), // Deep green matching brand
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
-                  )
-                ],
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF063A24), // Deep green matching brand
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    )
+                  ],
+                ),
+                child: const Icon(
+                  Icons.edit_rounded,
+                  color: Colors.white,
+                  size: 16,
+                ),
               ),
-              child: const Icon(
-                Icons.edit_rounded,
-                color: Colors.white,
-                size: 16,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPremiumBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: JamuTheme.lightMintBg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.circle,
-            size: 6,
-            color: JamuTheme.primaryGreenLight,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            'Premium Member',
-            style: GoogleFonts.plusJakartaSans(
-              color: JamuTheme.primaryGreen,
-              fontWeight: FontWeight.bold,
-              fontSize: 11,
-              letterSpacing: 0.2,
             ),
           ),
         ],
@@ -238,37 +219,31 @@ class ProfileTab extends StatelessWidget {
                   ),
                   child: Icon(
                     icon,
-                    color: JamuTheme.textSecondary,
+                    color: JamuTheme.textPrimary,
                     size: 22,
                   ),
                 ),
-                const SizedBox(width: 14),
-
-                // Text labels
+                const SizedBox(width: 16),
+                
+                // Texts
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         title,
-                        style: JamuTheme.titleSmall.copyWith(
-                          color: JamuTheme.textPrimary,
-                          fontSize: 14,
-                        ),
+                        style: JamuTheme.titleSmall.copyWith(fontSize: 15),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 2),
                       Text(
                         subtitle,
-                        style: JamuTheme.bodyMedium.copyWith(
-                          color: JamuTheme.textLight,
-                          fontSize: 12,
-                        ),
+                        style: JamuTheme.bodyMedium.copyWith(color: JamuTheme.textLight),
                       ),
                     ],
                   ),
                 ),
-
-                // Trailing item
+                
+                // Trailing
                 trailing,
               ],
             ),
@@ -278,130 +253,32 @@ class ProfileTab extends StatelessWidget {
     );
   }
 
-  Widget _buildStatsGrid(JamuProvider provider) {
-    return Row(
-      children: [
-        // Left Box: Transactions Today
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: const Color(0xFF133F2E), // Darker Forest Green
-              borderRadius: JamuTheme.cardRadius,
-              boxShadow: JamuTheme.softShadow,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'TRANSAKSI HARI INI',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: Colors.white70,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '${provider.transactionsCountToday}',
-                  style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 32,
-                  ),
-                ),
-              ],
-            ),
-          ),
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: JamuTheme.cardRadius),
+        title: Text('Konfirmasi Keluar', style: JamuTheme.titleMedium),
+        content: Text(
+          'Apakah Anda yakin ingin keluar dari sesi aplikasi saat ini?',
+          style: JamuTheme.bodyMedium,
         ),
-        const SizedBox(width: 16),
-
-        // Right Box: Herbal Stock percentage
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: JamuTheme.accentGreen, // Mint green background
-              borderRadius: JamuTheme.cardRadius,
-              boxShadow: JamuTheme.softShadow,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'STOK HERBAL',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: JamuTheme.primaryGreen,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '${provider.stockLevel.toStringAsFixed(0)}%',
-                  style: GoogleFonts.outfit(
-                    color: JamuTheme.primaryGreen,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 32,
-                  ),
-                ),
-              ],
-            ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLogoutButton(BuildContext context) {
-    return OutlinedButton(
-      onPressed: () {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Keluar Akun'),
-            content: const Text('Apakah Anda yakin ingin keluar dari akun Jamu Herbal?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Batal'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Keluar berhasil')),
-                  );
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: JamuTheme.dangerRedText),
-                child: const Text('Keluar', style: TextStyle(color: Colors.white)),
-              ),
-            ],
-          ),
-        );
-      },
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 50),
-        side: const BorderSide(color: Color(0xFFFDE8E8), width: 1.5),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        backgroundColor: const Color(0xFFFFF8F8),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.logout_rounded, color: JamuTheme.dangerRedText, size: 20),
-          const SizedBox(width: 10),
-          Text(
-            'Keluar Akun',
-            style: GoogleFonts.plusJakartaSans(
-              color: JamuTheme.dangerRedText,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              await authProvider.logout();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Berhasil keluar akun')),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: JamuTheme.dangerRedText),
+            child: const Text('Keluar', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

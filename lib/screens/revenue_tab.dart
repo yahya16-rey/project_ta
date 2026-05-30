@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -5,6 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/theme.dart';
 import '../providers/jamu_provider.dart';
 import '../models/jamu_models.dart';
+import 'add_product_screen.dart';
+import 'transaction_history_screen.dart';
+
 
 class RevenueTab extends StatefulWidget {
   const RevenueTab({Key? key}) : super(key: key);
@@ -14,8 +18,9 @@ class RevenueTab extends StatefulWidget {
 }
 
 class _RevenueTabState extends State<RevenueTab> {
-  final _quantityController = TextEditingController(text: "0");
-  String _selectedProduct = "Ekstrak Temulawak";
+  String? _selectedProduct;
+  final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _qtyController = TextEditingController(text: "1");
   bool _isSaving = false;
 
   // Jamu Product Catalog with prices and units
@@ -28,45 +33,27 @@ class _RevenueTabState extends State<RevenueTab> {
 
   @override
   void dispose() {
-    _quantityController.dispose();
+    _qtyController.dispose();
+    _amountController.dispose();
     super.dispose();
   }
 
-  void _saveTransaction() async {
-    final qtyText = _quantityController.text;
-    final qty = int.tryParse(qtyText) ?? 0;
-
-    if (qty <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Masukkan jumlah barang yang valid (lebih dari 0)'),
-          backgroundColor: JamuTheme.dangerRedText,
-        ),
-      );
-      return;
-    }
-
+  void _saveTransactionWithParams(JamuProvider provider, ProductMenu product, int qty) async {
     setState(() {
       _isSaving = true;
     });
 
     try {
-      final productData = _catalog[_selectedProduct]!;
-      final price = productData["price"] as double;
-      final unit = productData["unit"] as String;
-      final totalAmount = price * qty;
-
-      final provider = Provider.of<JamuProvider>(context, listen: false);
-      await provider.addPOSTransaction(_selectedProduct, qty, unit, totalAmount);
+      final amount = product.price * qty;
+      
+      await provider.addPOSTransaction(product.name, qty, 'Botol', amount);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Transaksi $_selectedProduct ($qty $unit) disimpan!'),
+          content: Text('Transaksi ${product.name} ($qty Botol) disimpan!'),
           backgroundColor: JamuTheme.primaryGreen,
         ),
       );
-
-      _quantityController.text = "0";
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -109,7 +96,7 @@ class _RevenueTabState extends State<RevenueTab> {
               const SizedBox(height: 24),
 
               // Input Transaksi Baru Card
-              _buildInputTransactionCard(),
+              _buildInputTransactionCard(provider),
               const SizedBox(height: 24),
 
               // Transaksi Terbaru
@@ -152,12 +139,16 @@ class _RevenueTabState extends State<RevenueTab> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  currencyFormat.format(provider.totalMonthlyRevenue).replaceAll(',', '.'),
-                  style: GoogleFonts.outfit(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: JamuTheme.textPrimary,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    currencyFormat.format(provider.totalMonthlyRevenue).replaceAll(',', '.'),
+                    style: GoogleFonts.outfit(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: JamuTheme.textPrimary,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -218,131 +209,267 @@ class _RevenueTabState extends State<RevenueTab> {
     );
   }
 
-  Widget _buildInputTransactionCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20.0),
-      decoration: BoxDecoration(
-        color: JamuTheme.cardColor,
-        borderRadius: JamuTheme.cardRadius,
-        border: Border.all(color: JamuTheme.borderLight),
-        boxShadow: JamuTheme.softShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Input Transaksi Baru',
-            style: JamuTheme.titleSmall.copyWith(fontSize: 16),
-          ),
-          const SizedBox(height: 16),
-
-          // Dropdown Pilih Produk
-          Text(
-            'Pilih Produk Jamu',
-            style: GoogleFonts.plusJakartaSans(
-              color: JamuTheme.textSecondary,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: JamuTheme.borderLight),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButtonFormField<String>(
-                value: _selectedProduct,
-                decoration: const InputDecoration(border: InputBorder.none),
-                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: JamuTheme.textSecondary),
-                items: _catalog.keys.map((String item) {
-                  return DropdownMenuItem<String>(
-                    value: item,
-                    child: Text(
-                      item,
-                      style: JamuTheme.bodyLarge.copyWith(fontSize: 14),
-                    ),
+  Widget _buildInputTransactionCard(JamuProvider provider) {
+    if (provider.catalogMenu.isEmpty) return const SizedBox();
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Katalog Menu POS',
+                style: JamuTheme.titleSmall.copyWith(fontSize: 16),
+              ),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AddProductScreen()),
                   );
-                }).toList(),
-                onChanged: (newValue) {
-                  setState(() {
-                    _selectedProduct = newValue!;
-                  });
                 },
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Jumlah Barang Textfield
-          Text(
-            'Jumlah Barang',
-            style: GoogleFonts.plusJakartaSans(
-              color: JamuTheme.textSecondary,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 6),
-          TextField(
-            controller: _quantityController,
-            keyboardType: TextInputType.number,
-            style: JamuTheme.bodyLarge.copyWith(fontSize: 14),
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: JamuTheme.borderLight),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: JamuTheme.primaryGreen),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Simpan Button
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _isSaving ? null : _saveTransaction,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: JamuTheme.primaryGreen,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-              child: _isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Simpan Transaksi',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                child: Row(
+                  children: [
+                    const Icon(Icons.add_circle_outline_rounded, color: JamuTheme.primaryGreen, size: 18),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Tambah Produk',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: JamuTheme.primaryGreen,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
                     ),
-            ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // Adjust ratio for smaller screens to prevent overflow
+            double aspectRatio = constraints.maxWidth < 360 ? 0.65 : 0.8;
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: aspectRatio, 
+              ),
+          itemCount: provider.catalogMenu.length,
+          itemBuilder: (context, index) {
+            final menu = provider.catalogMenu[index];
+            return GestureDetector(
+              onTap: () => _showAddTransactionDialog(context, provider, menu),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: JamuTheme.cardColor,
+                  borderRadius: JamuTheme.cardRadius,
+                  border: Border.all(color: JamuTheme.borderLight),
+                  boxShadow: JamuTheme.softShadow,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                        child: menu.imagePath.startsWith('assets/')
+                            ? Image.asset(
+                                menu.imagePath,
+                                fit: BoxFit.cover,
+                                errorBuilder: (ctx, err, stack) => const Icon(Icons.image_not_supported, color: Colors.grey),
+                              )
+                            : Image.file(
+                                File(menu.imagePath),
+                                fit: BoxFit.cover,
+                                errorBuilder: (ctx, err, stack) => const Icon(Icons.image_not_supported, color: Colors.grey),
+                              ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              menu.name,
+                              style: JamuTheme.titleSmall.copyWith(fontSize: 14),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Rp ${menu.price.toInt()}',
+                              style: GoogleFonts.outfit(
+                                color: JamuTheme.primaryGreen,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ),
+      ],
+    );
+  }
+
+  void _showAddTransactionDialog(BuildContext context, JamuProvider provider, ProductMenu menu) {
+    int localQty = 1;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: JamuTheme.backgroundColor,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: menu.imagePath.startsWith('assets/')
+                            ? Image.asset(
+                                menu.imagePath,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                                errorBuilder: (ctx, err, stack) => const Icon(Icons.image, size: 80),
+                              )
+                            : Image.file(
+                                File(menu.imagePath),
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                                errorBuilder: (ctx, err, stack) => const Icon(Icons.image, size: 80),
+                              ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(menu.name, style: JamuTheme.titleSmall.copyWith(fontSize: 18)),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Rp ${menu.price.toInt()}',
+                              style: GoogleFonts.outfit(
+                                color: JamuTheme.primaryGreen,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+                  Text(
+                    'Pilih Jumlah',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: JamuTheme.textSecondary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          if (localQty > 1) {
+                            setModalState(() => localQty--);
+                          }
+                        },
+                        icon: const Icon(Icons.remove_circle_outline, color: JamuTheme.textSecondary, size: 32),
+                      ),
+                      const SizedBox(width: 24),
+                      Text(
+                        localQty.toString(),
+                        style: GoogleFonts.outfit(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: JamuTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      IconButton(
+                        onPressed: () {
+                          setModalState(() => localQty++);
+                        },
+                        icon: const Icon(Icons.add_circle_outline, color: JamuTheme.primaryGreen, size: 32),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _saveTransactionWithParams(provider, menu, localQty);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: JamuTheme.primaryGreen,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: Text(
+                        'Tambahkan Rp ${(menu.price * localQty).toInt()}',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            );
+          }
+        );
+      },
     );
   }
 
@@ -358,7 +485,12 @@ class _RevenueTabState extends State<RevenueTab> {
               style: JamuTheme.titleMedium.copyWith(fontSize: 16),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const TransactionHistoryScreen()),
+                );
+              },
               child: Text(
                 'LIHAT SEMUA',
                 style: GoogleFonts.plusJakartaSans(
