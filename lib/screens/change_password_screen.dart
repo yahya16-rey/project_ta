@@ -271,6 +271,69 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         ),
                 ),
               ),
+              const SizedBox(height: 16),
+              
+              // Alternative: Reset Password via Email
+              Center(
+                child: TextButton(
+                  onPressed: _isSaving ? null : () async {
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                    final email = authProvider.userEmail;
+                    
+                    if (email.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Email pengguna tidak ditemukan')),
+                      );
+                      return;
+                    }
+
+                    setState(() => _isSaving = true);
+                    final error = await authProvider.sendPasswordResetEmail(email);
+                    setState(() => _isSaving = false);
+
+                    if (error != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(error), backgroundColor: JamuTheme.dangerRedText),
+                      );
+                    } else {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          shape: RoundedRectangleBorder(borderRadius: JamuTheme.cardRadius),
+                          title: const Row(
+                            children: [
+                              Icon(Icons.mark_email_read_rounded, color: JamuTheme.primaryGreen),
+                              SizedBox(width: 10),
+                              Text('Email Terkirim'),
+                            ],
+                          ),
+                          content: Text(
+                            'Tautan untuk mengatur ulang kata sandi telah dikirim ke:\n\n$email\n\nSilakan periksa kotak masuk atau folder spam Anda.',
+                            style: JamuTheme.bodyMedium,
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                Navigator.pop(context); // Close ChangePasswordScreen
+                              },
+                              child: Text('OK, Mengerti', style: TextStyle(color: JamuTheme.primaryGreen, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                  },
+                  child: Text(
+                    'Lupa Kata Sandi? Kirim Email Reset',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: JamuTheme.primaryGreen,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),

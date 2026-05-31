@@ -1,9 +1,14 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import '../models/jamu_models.dart';
 
 class JamuProvider with ChangeNotifier {
@@ -28,6 +33,8 @@ class JamuProvider with ChangeNotifier {
     ProductMenu(name: 'Jahe Merah', price: 20000, imagePath: 'assets/images/jamu_jahe_merah.png'),
     ProductMenu(name: 'Gula Asem', price: 12000, imagePath: 'assets/images/jamu_gula_asem.png'),
   ];
+  
+  List<CartItem> _cartItems = [];
 
   bool _isFirebaseConnected = false;
   bool _isLoading = true;
@@ -46,6 +53,9 @@ class JamuProvider with ChangeNotifier {
   List<TransactionData> get recentTransactions => _recentTransactions;
   List<ActivityLog> get recentActivities => _recentActivities;
   List<ProductMenu> get catalogMenu => _catalogMenu;
+  List<CartItem> get cartItems => _cartItems;
+  
+  double get cartTotal => _cartItems.fold(0, (sum, item) => sum + item.totalAmount);
 
   bool get isFirebaseConnected => _isFirebaseConnected;
   bool get isLoading => _isLoading;
@@ -58,8 +68,6 @@ class JamuProvider with ChangeNotifier {
   StreamSubscription? _summarySub;
   StreamSubscription? _inventorySub;
 
-  // Local Simulation tools
-  Timer? _simulationTimer;
   final Random _random = Random();
 
   JamuProvider() {
@@ -67,6 +75,7 @@ class JamuProvider with ChangeNotifier {
   }
 
   Future<void> _initializeData() async {
+    await _loadLocalData();
     try {
       if (Firebase.apps.isNotEmpty) {
         _setupFirebaseStreams();
@@ -78,6 +87,36 @@ class JamuProvider with ChangeNotifier {
       _setupEmptyState();
     }
   }
+  
+  Future<void> _loadLocalData() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Load Catalog
+    final catalogStr = prefs.getString('catalogMenu');
+    if (catalogStr != null) {
+      final List decoded = jsonDecode(catalogStr);
+      _catalogMenu = decoded.map((e) => ProductMenu.fromMap(e)).toList();
+    }
+
+    // Load Revenue
+    _totalMonthlyRevenue = prefs.getDouble('totalMonthlyRevenue') ?? 0.0;
+    _transactionsCountToday = prefs.getInt('transactionsCountToday') ?? 0;
+
+    // Load Transactions
+    final txStr = prefs.getString('recentTransactions');
+    if (txStr != null) {
+      final List decoded = jsonDecode(txStr);
+      _recentTransactions = decoded.map((e) => TransactionData.fromJsonMap(e)).toList();
+    }
+  }
+
+  Future<void> _saveLocalData() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('catalogMenu', jsonEncode(_catalogMenu.map((e) => e.toMap()).toList()));
+    prefs.setDouble('totalMonthlyRevenue', _totalMonthlyRevenue);
+    prefs.setInt('transactionsCountToday', _transactionsCountToday);
+    prefs.setString('recentTransactions', jsonEncode(_recentTransactions.map((e) => e.toMap()).toList()));
+  }
 
   // Set up Firebase listeners
   void _setupFirebaseStreams() {
@@ -86,25 +125,19 @@ class JamuProvider with ChangeNotifier {
     _isLoading = false;
     notifyListeners();
 
-    // 1. Stream Boiler Data
     _boilerSub = firestore.collection('monitoring').doc('boiler').snapshots().listen((doc) {
       if (doc.exists && doc.data() != null) {
         _boilerData = BoilerData.fromMap(doc.data()!);
         _targetTemperature = (doc.data()?['targetTemperature'] ?? 32.5).toDouble();
-        
         if (doc.data()?['lastUpdated'] != null) {
           _lastUpdatedTime = doc.data()?['lastUpdated'] ?? _lastUpdatedTime;
         } else {
           _lastUpdatedTime = DateFormat('HH:mm').format(DateTime.now()) + " WIB";
         }
         notifyListeners();
-      } else {
-        // Jika dokumen boiler tidak ada, asumsi database masih kosong. Seed data!
-        seedFirebaseInitialData();
       }
     }, onError: (e) => debugPrint('Error boiler stream: $e'));
 
-    // 2. Stream Temperature History (Limit 15, newest first)
     _historySub = firestore.collection('temperature_history')
         .orderBy('timestamp', descending: true)
         .limit(15)
@@ -114,7 +147,6 @@ class JamuProvider with ChangeNotifier {
       notifyListeners();
     }, onError: (e) => debugPrint('Error temp history stream: $e'));
 
-    // 3. Stream Transactions (Limit 15, newest first)
     _transactionSub = firestore.collection('transactions')
         .orderBy('timestamp', descending: true)
         .limit(15)
@@ -122,7 +154,6 @@ class JamuProvider with ChangeNotifier {
         .listen((snapshot) {
       _recentTransactions = snapshot.docs.map((doc) {
         final data = doc.data();
-        // format timestamp for display
         String timeStr = "Baru";
         if (data['timestamp'] != null) {
           final t = (data['timestamp'] as Timestamp).toDate();
@@ -136,7 +167,6 @@ class JamuProvider with ChangeNotifier {
       notifyListeners();
     }, onError: (e) => debugPrint('Error transactions stream: $e'));
 
-    // 4. Stream Activities (Limit 10, newest first)
     _activitySub = firestore.collection('activities')
         .orderBy('timestamp', descending: true)
         .limit(10)
@@ -157,56 +187,54 @@ class JamuProvider with ChangeNotifier {
       notifyListeners();
     }, onError: (e) => debugPrint('Error activities stream: $e'));
 
-    // 5. Stream Revenue Summary
     _summarySub = firestore.collection('revenue').doc('summary').snapshots().listen((doc) {
       if (doc.exists && doc.data() != null) {
-        _totalMonthlyRevenue = (doc.data()?['totalMonthlyRevenue'] ?? 12450000.0).toDouble();
-        _revenuePercentageIncrease = (doc.data()?['percentChange'] ?? 15.0).toDouble();
-        _transactionsCountToday = (doc.data()?['transactionsCountToday'] ?? 42).toInt();
+        _totalMonthlyRevenue = (doc.data()?['totalMonthlyRevenue'] ?? 0.0).toDouble();
+        _revenuePercentageIncrease = (doc.data()?['percentChange'] ?? 0.0).toDouble();
+        _transactionsCountToday = (doc.data()?['transactionsCountToday'] ?? 0).toInt();
         notifyListeners();
       }
     }, onError: (e) => debugPrint('Error revenue summary stream: $e'));
 
-    // 6. Stream Inventory Stock
     _inventorySub = firestore.collection('inventory').doc('turmeric').snapshots().listen((doc) {
       if (doc.exists && doc.data() != null) {
-        _stockLevel = (doc.data()?['stockPercentage'] ?? 85.0).toDouble();
+        _stockLevel = (doc.data()?['stockPercentage'] ?? 100.0).toDouble();
         _isIotConnected = doc.data()?['iotConnected'] ?? true;
         notifyListeners();
       }
     }, onError: (e) => debugPrint('Error inventory stream: $e'));
   }
 
-  // Set up clean local state without dummy data
   void _setupEmptyState() {
     _isFirebaseConnected = false;
     _isLoading = false;
-
-    // Start with 0/empty data instead of mockups
-    _totalMonthlyRevenue = 0.0;
-    _revenuePercentageIncrease = 0.0;
-    _stockLevel = 100.0;
-    _transactionsCountToday = 0;
-    _isIotConnected = false;
-
-    _tempHistory = [];
-    _recentTransactions = [];
-    _recentActivities = [];
-
-    // Optional: Add one initial system log
-    _recentActivities.insert(0, ActivityLog(
-      id: "sys_1",
-      type: "temp",
-      title: "Sistem Dimulai",
-      description: "Menunggu koneksi IoT/Firebase",
-      timestamp: DateFormat('HH:mm').format(DateTime.now()),
-    ));
-
     notifyListeners();
   }
 
-  // Method to add new POS Transaction
-  Future<void> addPOSTransaction(String product, int quantity, String unit, double amount) async {
+  // Cart Management
+  void addToCart(ProductMenu product, int quantity) {
+    int existingIndex = _cartItems.indexWhere((item) => item.product.name == product.name);
+    if (existingIndex >= 0) {
+      _cartItems[existingIndex].quantity += quantity;
+    } else {
+      _cartItems.add(CartItem(product: product, quantity: quantity));
+    }
+    notifyListeners();
+  }
+
+  void removeFromCart(ProductMenu product) {
+    _cartItems.removeWhere((item) => item.product.name == product.name);
+    notifyListeners();
+  }
+
+  void clearCart() {
+    _cartItems.clear();
+    notifyListeners();
+  }
+
+  Future<void> checkoutCart() async {
+    if (_cartItems.isEmpty) return;
+
     final now = DateTime.now();
     final timeStr = DateFormat('HH:mm').format(now);
 
@@ -215,168 +243,141 @@ class JamuProvider with ChangeNotifier {
         final firestore = FirebaseFirestore.instance;
         final batch = firestore.batch();
 
-        // 1. Add to transaction log
+        double totalAmount = 0;
+        int totalQty = 0;
+        
+        List<Map<String, dynamic>> itemsList = [];
+        
+        for (var item in _cartItems) {
+          totalAmount += item.totalAmount;
+          totalQty += item.quantity;
+          itemsList.add({
+            'nama_produk': item.product.name,
+            'jumlah': item.quantity,
+            'harga': item.product.price,
+          });
+        }
+
         final txRef = firestore.collection('transactions').doc();
         batch.set(txRef, {
-          'product': product,
-          'quantity': quantity,
-          'unit': unit,
-          'amount': amount,
+          'items': itemsList,
+          'amount': totalAmount,
           'timestamp': FieldValue.serverTimestamp(),
         });
+        
+        final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+        final String detailDesc = '${_cartItems.length} Product\n' + _cartItems.map((e) {
+          final total = e.quantity * e.product.price;
+          return '${e.quantity} ${e.product.name} Rp ${currencyFormat.format(total).replaceAll('Rp ', '').replaceAll(',', '.')}';
+        }).join('\n');
 
-        // 2. Add to Activity log
         final actRef = firestore.collection('activities').doc();
         batch.set(actRef, {
           'type': 'transaction',
-          'title': 'Transaksi Baru',
-          'description': 'Order $product x$quantity Berhasil',
+          'title': 'Transaksi Checkout',
+          'description': '$detailDesc\nTotal Rp ${currencyFormat.format(totalAmount).replaceAll('Rp ', '').replaceAll(',', '.')}',
           'timestamp': FieldValue.serverTimestamp(),
         });
 
-        // 3. Update summary
         final summaryRef = firestore.collection('revenue').doc('summary');
         batch.set(summaryRef, {
-          'totalMonthlyRevenue': FieldValue.increment(amount),
-          'transactionsCountToday': FieldValue.increment(1),
+          'totalMonthlyRevenue': FieldValue.increment(totalAmount),
+          'transactionsCountToday': FieldValue.increment(_cartItems.length),
         }, SetOptions(merge: true));
 
-        // 4. Slightly decrement stock percentage (simulating inventory usage, e.g. -0.5% per item)
         final invRef = firestore.collection('inventory').doc('turmeric');
-        double stockChange = -0.5 * quantity;
+        double stockChange = -0.5 * totalQty;
         batch.set(invRef, {
           'stockPercentage': FieldValue.increment(stockChange < -10 ? -10.0 : stockChange),
         }, SetOptions(merge: true));
 
         await batch.commit();
+        clearCart();
+        return; // Success Firebase
       } catch (e) {
-        debugPrint("Error pushing transaction to Firebase, writing locally: $e");
-        _addTransactionLocally(product, quantity, unit, amount, timeStr);
+        debugPrint("Error pushing batch to Firebase, doing locally: $e");
       }
-    } else {
-      _addTransactionLocally(product, quantity, unit, amount, timeStr);
     }
-  }
-
-  void _addTransactionLocally(String product, int quantity, String unit, double amount, String timeStr) {
-    // 1. Add to transaction list
-    final txId = "tx_${DateTime.now().millisecondsSinceEpoch}";
+    
+    // Local processing fallback
+    double totalAmount = 0;
+    int totalQty = 0;
+    List<TransactionItem> localItemsList = [];
+    
+    for (var item in _cartItems) {
+      totalAmount += item.totalAmount;
+      totalQty += item.quantity;
+      localItemsList.add(TransactionItem(
+        name: item.product.name,
+        quantity: item.quantity,
+        price: item.product.price,
+      ));
+    }
+    
+    final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final String detailDesc = '${_cartItems.length} Product\n' + _cartItems.map((e) {
+      final total = e.quantity * e.product.price;
+      return '${e.quantity} ${e.product.name} Rp ${currencyFormat.format(total).replaceAll('Rp ', '').replaceAll(',', '.')}';
+    }).join('\n');
+    final txId = "tx_${DateTime.now().millisecondsSinceEpoch}_${_random.nextInt(100)}";
     _recentTransactions.insert(0, TransactionData(
       id: txId,
-      product: product,
+      product: 'Transaksi Checkout',
       timestamp: timeStr,
-      quantity: quantity,
-      unit: unit,
-      amount: amount,
+      quantity: totalQty,
+      unit: 'Botol',
+      amount: totalAmount,
+      items: localItemsList,
     ));
+    
     if (_recentTransactions.length > 20) {
-      _recentTransactions.removeLast();
+      _recentTransactions = _recentTransactions.sublist(0, 20);
     }
 
-    // 2. Add to activities log
-    final actId = "act_${DateTime.now().millisecondsSinceEpoch}";
     _recentActivities.insert(0, ActivityLog(
-      id: actId,
+      id: "act_${DateTime.now().millisecondsSinceEpoch}",
       type: "transaction",
-      title: "Transaksi Baru",
-      description: "Order $product x$quantity Berhasil",
+      title: "Transaksi Checkout",
+      description: '$detailDesc\nTotal Rp ${currencyFormat.format(totalAmount).replaceAll('Rp ', '').replaceAll(',', '.')}',
       timestamp: timeStr,
     ));
     if (_recentActivities.length > 10) {
       _recentActivities.removeLast();
     }
 
-    // 3. Update counters
-    _totalMonthlyRevenue += amount;
-    _transactionsCountToday += 1;
-
-    // 4. Decrement stock level
-    _stockLevel -= (0.5 * quantity);
+    _totalMonthlyRevenue += totalAmount;
+    _transactionsCountToday += _cartItems.length;
+    _stockLevel -= (0.5 * totalQty);
     if (_stockLevel < 0) _stockLevel = 0.0;
 
-    notifyListeners();
+    await _saveLocalData();
+    clearCart();
   }
 
-  // Method to add dynamic product to POS catalog menu
-  void addProduct(String name, double price, String imagePath) {
-    _catalogMenu.add(ProductMenu(name: name, price: price, imagePath: imagePath));
-    notifyListeners();
+  // Backwards compatibility for old method
+  Future<void> addPOSTransaction(String product, int quantity, String unit, double amount) async {
+    // Deprecated. We now use addToCart and checkoutCart
   }
 
-
-  // Utility to seed initial dummy data to Cloud Firestore if connected
-  Future<void> seedFirebaseInitialData() async {
-    if (!_isFirebaseConnected) return;
-
-    try {
-      final firestore = FirebaseFirestore.instance;
-      final batch = firestore.batch();
-
-      // Seed boiler
-      batch.set(firestore.collection('monitoring').doc('boiler'), {
-        'temperature': 32.4,
-        'status': 'NORMAL',
-        'targetTemperature': 32.5,
-        'lastUpdated': '10:30 WIB',
-      });
-
-      // Seed summary
-      batch.set(firestore.collection('revenue').doc('summary'), {
-        'totalMonthlyRevenue': 12450000.0,
-        'percentChange': 15.0,
-        'transactionsCountToday': 42,
-      });
-
-      // Seed stock
-      batch.set(firestore.collection('inventory').doc('turmeric'), {
-        'stockPercentage': 85.0,
-        'iotConnected': true,
-      });
-
-      // Seed historical temperatures
-      final List<Map<String, dynamic>> mockHistory = [
-        {'time': '10:30 WIB', 'temperature': 32.4, 'status': 'Suhu Stabil', 'timestamp': DateTime.now().subtract(const Duration(minutes: 0))},
-        {'time': '10:15 WIB', 'temperature': 32.2, 'status': 'Suhu Stabil', 'timestamp': DateTime.now().subtract(const Duration(minutes: 15))},
-        {'time': '10:00 WIB', 'temperature': 31.8, 'status': 'Penyesuaian Api', 'timestamp': DateTime.now().subtract(const Duration(minutes: 30))},
-        {'time': '09:45 WIB', 'temperature': 32.1, 'status': 'Suhu Stabil', 'timestamp': DateTime.now().subtract(const Duration(minutes: 45))},
-        {'time': '09:30 WIB', 'temperature': 30.5, 'status': 'Inisiasi Proses', 'timestamp': DateTime.now().subtract(const Duration(minutes: 60))},
-      ];
-
-      for (var index = 0; index < mockHistory.length; index++) {
-        final docRef = firestore.collection('temperature_history').doc("temp_hist_$index");
-        batch.set(docRef, mockHistory[index]);
+  // Method to add dynamic product to POS catalog menu permanently
+  Future<void> addProduct(String name, double price, String imagePath) async {
+    String finalImagePath = imagePath;
+    if (!imagePath.startsWith('assets/')) {
+      try {
+        final directory = await getApplicationDocumentsDirectory();
+        final fileName = path.basename(imagePath);
+        final savedImage = await File(imagePath).copy('${directory.path}/$fileName');
+        finalImagePath = savedImage.path;
+      } catch (e) {
+        debugPrint('Failed to copy product image: $e');
       }
-
-      // Seed activities
-      final List<Map<String, dynamic>> mockActs = [
-        {'type': 'temp', 'title': 'Suhu Stabil', 'description': 'Semua sensor beroperasi normal', 'timestamp': DateTime.now().subtract(const Duration(minutes: 5))},
-        {'type': 'transaction', 'title': 'Transaksi Baru', 'description': 'Order #TRX-8829 Berhasil', 'timestamp': DateTime.now().subtract(const Duration(minutes: 20))},
-        {'type': 'temp', 'title': 'Suhu Stabil', 'description': 'Pengecekan rutin otomatis', 'timestamp': DateTime.now().subtract(const Duration(minutes: 65))},
-      ];
-
-      for (var index = 0; index < mockActs.length; index++) {
-        final docRef = firestore.collection('activities').doc("act_$index");
-        batch.set(docRef, mockActs[index]);
-      }
-
-      // Seed transactions
-      final List<Map<String, dynamic>> mockTxs = [
-        {'product': 'Ekstrak Temulawak', 'quantity': 2, 'unit': 'Botol', 'amount': 150000.0, 'timestamp': DateTime.now().subtract(const Duration(hours: 1))},
-        {'product': 'Jahe Merah Instan', 'quantity': 5, 'unit': 'Sachet', 'amount': 75000.0, 'timestamp': DateTime.now().subtract(const Duration(hours: 3))},
-        {'product': 'Ekstrak Temulawak', 'quantity': 1, 'unit': 'Botol', 'amount': 75000.0, 'timestamp': DateTime.now().subtract(const Duration(days: 1))},
-      ];
-
-      for (var index = 0; index < mockTxs.length; index++) {
-        final docRef = firestore.collection('transactions').doc("tx_$index");
-        batch.set(docRef, mockTxs[index]);
-      }
-
-      await batch.commit();
-      debugPrint("Firebase Database successfully seeded with mockup defaults!");
-    } catch (e) {
-      debugPrint("Failed to seed initial data: $e");
     }
+
+    _catalogMenu.add(ProductMenu(name: name, price: price, imagePath: finalImagePath));
+    await _saveLocalData();
+    notifyListeners();
   }
+
   @override
   void dispose() {
     _boilerSub?.cancel();
@@ -385,7 +386,6 @@ class JamuProvider with ChangeNotifier {
     _activitySub?.cancel();
     _summarySub?.cancel();
     _inventorySub?.cancel();
-    _simulationTimer?.cancel();
     super.dispose();
   }
 }

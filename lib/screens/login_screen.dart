@@ -50,6 +50,124 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _showForgotPasswordDialog(BuildContext context) {
+    final emailController = TextEditingController(text: _emailController.text);
+    bool isSending = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: JamuTheme.cardRadius),
+              title: Text('Lupa Kata Sandi?', style: JamuTheme.titleMedium),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Masukkan email akun Anda. Kami akan mengirimkan tautan untuk mengatur ulang kata sandi.',
+                    style: JamuTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      labelText: 'Email',
+                      prefixIcon: const Icon(Icons.email_outlined, color: JamuTheme.textSecondary),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSending ? null : () => Navigator.pop(ctx),
+                  child: const Text('Batal', style: TextStyle(color: JamuTheme.textSecondary)),
+                ),
+                ElevatedButton(
+                  onPressed: isSending
+                      ? null
+                      : () async {
+                          final email = emailController.text.trim();
+                          if (email.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Email tidak boleh kosong')),
+                            );
+                            return;
+                          }
+
+                          setState(() => isSending = true);
+                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                          final error = await authProvider.sendPasswordResetEmail(email);
+                          
+                          if (!ctx.mounted) return;
+                          
+                          if (error != null) {
+                            setState(() => isSending = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(error), backgroundColor: JamuTheme.dangerRedText),
+                            );
+                          } else {
+                            Navigator.pop(ctx);
+                            _showEmailSentSuccessDialog(context, email);
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(backgroundColor: JamuTheme.primaryGreen),
+                  child: isSending
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('Kirim Email', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showEmailSentSuccessDialog(BuildContext context, String email) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: JamuTheme.cardRadius),
+        title: const Row(
+          children: [
+            Icon(Icons.mark_email_read_rounded, color: JamuTheme.primaryGreen),
+            SizedBox(width: 10),
+            Text('Email Terkirim'),
+          ],
+        ),
+        content: Text(
+          'Tautan untuk mengatur ulang kata sandi telah dikirim ke:\n\n$email\n\nSilakan buka email Anda dan atur sandi baru, setelah itu login kembali menggunakan sandi baru tersebut.',
+          style: JamuTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal', style: TextStyle(color: JamuTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Sandi berhasil diubah! Silakan login dengan sandi baru Anda.'),
+                  backgroundColor: JamuTheme.primaryGreen,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: JamuTheme.primaryGreen),
+            child: const Text('Saya Sudah Ganti Sandi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -162,7 +280,28 @@ class _LoginScreenState extends State<LoginScreen> {
                       fillColor: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 4),
+
+                  // Lupa Kata Sandi
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => _showForgotPasswordDialog(context),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        'Lupa Kata Sandi?',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: JamuTheme.primaryGreen,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
 
                   // Login Button
                   SizedBox(

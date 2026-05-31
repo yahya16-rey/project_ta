@@ -38,34 +38,15 @@ class _RevenueTabState extends State<RevenueTab> {
     super.dispose();
   }
 
-  void _saveTransactionWithParams(JamuProvider provider, ProductMenu product, int qty) async {
-    setState(() {
-      _isSaving = true;
-    });
-
-    try {
-      final amount = product.price * qty;
-      
-      await provider.addPOSTransaction(product.name, qty, 'Botol', amount);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Transaksi ${product.name} ($qty Botol) disimpan!'),
-          backgroundColor: JamuTheme.primaryGreen,
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal menyimpan transaksi: $e'),
-          backgroundColor: JamuTheme.dangerRedText,
-        ),
-      );
-    } finally {
-      setState(() {
-        _isSaving = false;
-      });
-    }
+  void _addToCart(JamuProvider provider, ProductMenu product, int qty) {
+    provider.addToCart(product, qty);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${product.name} ($qty) masuk keranjang!'),
+        backgroundColor: JamuTheme.primaryGreen,
+        duration: const Duration(seconds: 1),
+      ),
+    );
   }
 
   @override
@@ -74,39 +55,122 @@ class _RevenueTabState extends State<RevenueTab> {
 
     return Consumer<JamuProvider>(
       builder: (context, provider, child) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 10.0, bottom: 90.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Page Header
-              Text(
-                'Pencatatan Omset',
-                style: JamuTheme.titleLarge,
+        return Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 10.0, bottom: 120.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Page Header
+                  Text(
+                    'Pencatatan Omset',
+                    style: JamuTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Lacak pendapatan harian dan efisiensi produksi Anda.',
+                    style: JamuTheme.bodyMedium.copyWith(color: JamuTheme.textLight, fontSize: 13),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Total Revenue Card
+                  _buildTotalRevenueCard(provider, currencyFormat),
+                  const SizedBox(height: 24),
+
+                  // Input Transaksi Baru Card
+                  _buildInputTransactionCard(provider),
+                  const SizedBox(height: 24),
+
+                  // Transaksi Terbaru
+                  _buildRecentTransactionsSection(provider, currencyFormat),
+                  const SizedBox(height: 24),
+
+                  // Bottom Decorative Image
+                  _buildBottomBanner(),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Lacak pendapatan harian dan efisiensi produksi Anda.',
-                style: JamuTheme.bodyMedium.copyWith(color: JamuTheme.textLight, fontSize: 13),
+            ),
+            
+            // Cart Floating Checkout Button
+            if (provider.cartItems.isNotEmpty)
+              Positioned(
+                bottom: 20,
+                left: 20,
+                right: 20,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: JamuTheme.primaryGreen,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: JamuTheme.primaryGreen.withOpacity(0.4),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      )
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () {
+                        _showCartDetailBottomSheet(context, provider, currencyFormat);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${provider.cartItems.length} Produk di Keranjang',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  currencyFormat.format(provider.cartTotal).replaceAll(',', '.'),
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                Text(
+                                  _isSaving ? 'Menyimpan...' : 'Checkout',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                if (!_isSaving)
+                                  const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 16),
+                                if (_isSaving)
+                                  const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(height: 20),
-
-              // Total Revenue Card
-              _buildTotalRevenueCard(provider, currencyFormat),
-              const SizedBox(height: 24),
-
-              // Input Transaksi Baru Card
-              _buildInputTransactionCard(provider),
-              const SizedBox(height: 24),
-
-              // Transaksi Terbaru
-              _buildRecentTransactionsSection(provider, currencyFormat),
-              const SizedBox(height: 24),
-
-              // Bottom Decorative Image
-              _buildBottomBanner(),
-            ],
-          ),
+          ],
         );
       },
     );
@@ -447,14 +511,14 @@ class _RevenueTabState extends State<RevenueTab> {
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.pop(ctx);
-                        _saveTransactionWithParams(provider, menu, localQty);
+                        _addToCart(provider, menu, localQty);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: JamuTheme.primaryGreen,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
                       child: Text(
-                        'Tambahkan Rp ${(menu.price * localQty).toInt()}',
+                        'Tambahkan ke Keranjang',
                         style: GoogleFonts.plusJakartaSans(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -617,6 +681,166 @@ class _RevenueTabState extends State<RevenueTab> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showCartDetailBottomSheet(BuildContext context, JamuProvider provider, NumberFormat currencyFormat) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
+          decoration: const BoxDecoration(
+            color: JamuTheme.backgroundColor,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Keranjang Pesanan',
+                    style: JamuTheme.titleMedium.copyWith(fontSize: 18),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      provider.clearCart();
+                      Navigator.pop(ctx);
+                    },
+                    child: Text(
+                      'KOSONGKAN',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: JamuTheme.dangerRedText,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: provider.cartItems.length,
+                  separatorBuilder: (context, index) => const Divider(color: JamuTheme.borderLight),
+                  itemBuilder: (context, index) {
+                    final item = provider.cartItems[index];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(item.product.name, style: JamuTheme.titleSmall.copyWith(fontSize: 14)),
+                      subtitle: Text('${item.quantity} Botol', style: JamuTheme.bodyMedium),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            currencyFormat.format(item.totalAmount).replaceAll(',', '.'),
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline, color: JamuTheme.dangerRedText, size: 20),
+                            onPressed: () {
+                              provider.removeFromCart(item.product);
+                              if (provider.cartItems.isEmpty) {
+                                Navigator.pop(ctx);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: JamuTheme.cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: JamuTheme.primaryGreenLight.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Total Checkout', style: JamuTheme.titleSmall),
+                    Text(
+                      currencyFormat.format(provider.cartTotal).replaceAll(',', '.'),
+                      style: GoogleFonts.outfit(
+                        color: JamuTheme.primaryGreen,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: const BorderSide(color: JamuTheme.textSecondary),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: Text(
+                        'Kembali',
+                        style: GoogleFonts.plusJakartaSans(color: JamuTheme.textSecondary, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        setState(() => _isSaving = true);
+                        await provider.checkoutCart();
+                        setState(() => _isSaving = false);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Pesanan Berhasil Disimpan!'),
+                              backgroundColor: JamuTheme.primaryGreen,
+                            ),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: JamuTheme.primaryGreen,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: Text(
+                        'Checkout Sekarang',
+                        style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
     );
   }
 }

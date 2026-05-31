@@ -118,8 +118,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildCustomBottomNavBar() {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Container(
-      height: 72,
+      height: 72 + bottomPadding,
+      padding: EdgeInsets.only(bottom: bottomPadding),
       decoration: BoxDecoration(
         color: Colors.white,
         border: const Border(

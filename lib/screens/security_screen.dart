@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../theme/theme.dart';
+import '../providers/auth_provider.dart';
 import 'change_password_screen.dart';
 import 'privacy_policy_screen.dart';
 
@@ -44,10 +46,7 @@ class SecurityScreen extends StatelessWidget {
               'Ubah Kata Sandi',
               'Perbarui password akun Anda secara berkala',
               () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ChangePasswordScreen()),
-                );
+                _showChangePasswordConfirmation(context);
               },
             ),
             _buildActionTile(
@@ -97,6 +96,117 @@ class SecurityScreen extends StatelessWidget {
         subtitle: Text(subtitle, style: JamuTheme.bodyMedium.copyWith(color: JamuTheme.textLight)),
         trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: JamuTheme.textLight),
         onTap: onTap,
+      ),
+    );
+  }
+
+  void _showChangePasswordConfirmation(BuildContext context) {
+    bool isSending = false;
+    
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: JamuTheme.cardRadius),
+              title: Text('Ubah Kata Sandi?', style: JamuTheme.titleMedium),
+              content: Text(
+                'Apakah Anda yakin ingin mengatur ulang kata sandi? Kami akan mengirimkan email berisikan tautan untuk membuat kata sandi baru Anda.',
+                style: JamuTheme.bodyMedium,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSending ? null : () => Navigator.pop(ctx),
+                  child: const Text('Batal', style: TextStyle(color: JamuTheme.textSecondary)),
+                ),
+                ElevatedButton(
+                  onPressed: isSending
+                      ? null
+                      : () async {
+                          setState(() => isSending = true);
+                          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                          final email = authProvider.userEmail;
+                          
+                          if (email.isEmpty) {
+                            setState(() => isSending = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Email pengguna tidak ditemukan')),
+                            );
+                            return;
+                          }
+
+                          final error = await authProvider.sendPasswordResetEmail(email);
+                          
+                          if (!ctx.mounted) return;
+                          
+                          if (error != null) {
+                            setState(() => isSending = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(error), backgroundColor: JamuTheme.dangerRedText),
+                            );
+                          } else {
+                            Navigator.pop(ctx);
+                            _showEmailSentSuccessDialog(context, email);
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(backgroundColor: JamuTheme.primaryGreen),
+                  child: isSending
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('Ya, Kirim Email', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showEmailSentSuccessDialog(BuildContext context, String email) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: JamuTheme.cardRadius),
+        title: const Row(
+          children: [
+            Icon(Icons.mark_email_read_rounded, color: JamuTheme.primaryGreen),
+            SizedBox(width: 10),
+            Text('Email Terkirim'),
+          ],
+        ),
+        content: Text(
+          'Tautan untuk mengatur ulang kata sandi telah dikirim ke:\n\n$email\n\nSilakan buka email Anda untuk mengatur kata sandi baru.',
+          style: JamuTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal', style: TextStyle(color: JamuTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx); // Tutup dialog
+              Navigator.pop(context); // Keluar dari Security Screen ke Dashboard/Profile
+              
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              await authProvider.logout(); // Logout untuk kembali ke Login Screen
+              
+              // Tampilkan snackbar (akan muncul di atas screen baru jika diset floating dan global)
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Sandi berhasil diubah! Silakan login dengan sandi baru Anda.'),
+                    backgroundColor: JamuTheme.primaryGreen,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: JamuTheme.primaryGreen),
+            child: const Text('Saya Sudah Ganti Sandi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }

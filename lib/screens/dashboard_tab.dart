@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math';
 import '../theme/theme.dart';
 import '../providers/jamu_provider.dart';
 import '../models/jamu_models.dart';
 import 'activity_history_screen.dart';
-
+import 'transaction_history_screen.dart';
 
 class DashboardTab extends StatelessWidget {
   const DashboardTab({Key? key}) : super(key: key);
@@ -16,29 +17,57 @@ class DashboardTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
-    return Consumer<JamuProvider>(
-      builder: (context, provider, child) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 10.0, bottom: 90.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Welcome Banner
-              _buildWelcomeBanner(),
-              const SizedBox(height: 20),
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('monitoring').doc('boiler').snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF114D32)),
+            ),
+          );
+        }
 
-              // Temperature Card
-              _buildTemperatureCard(context, provider),
-              const SizedBox(height: 16),
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20.0),
+              child: Text(
+                "Belum ada data",
+                style: TextStyle(fontSize: 16, color: JamuTheme.textSecondary),
+              ),
+            ),
+          );
+        }
 
-              // Revenue Card
-              _buildRevenueCard(context, provider, currencyFormat),
-              const SizedBox(height: 24),
+        final docData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+        final boilerData = BoilerData.fromMap(docData);
 
-              // Recent Activities Section
-              _buildRecentActivitiesSection(context, provider),
-            ],
-          ),
+        return Consumer<JamuProvider>(
+          builder: (context, provider, child) {
+            return SingleChildScrollView(
+              padding: EdgeInsets.only(left: 20.0, right: 20.0, top: 10.0, bottom: 90.0 + MediaQuery.of(context).padding.bottom),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Welcome Banner
+                  _buildWelcomeBanner(),
+                  const SizedBox(height: 20),
+
+                  // Temperature Card
+                  _buildTemperatureCard(context, provider, boilerData),
+                  const SizedBox(height: 16),
+
+                  // Revenue Card
+                  _buildRevenueCard(context, provider, currencyFormat),
+                  const SizedBox(height: 24),
+
+                  // Recent Activities Section
+                  _buildRecentActivitiesSection(context, provider),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -106,9 +135,9 @@ class DashboardTab extends StatelessWidget {
     );
   }
 
-  Widget _buildTemperatureCard(BuildContext context, JamuProvider provider) {
-    final temp = provider.boilerData.temperature;
-    final status = provider.boilerData.status;
+  Widget _buildTemperatureCard(BuildContext context, JamuProvider provider, BoilerData boilerData) {
+    final temp = boilerData.temperature;
+    final status = boilerData.status;
 
     return Container(
       width: double.infinity,
@@ -221,7 +250,10 @@ class DashboardTab extends StatelessWidget {
               ),
               GestureDetector(
                 onTap: () {
-                  // Handled in navigation shell
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const TransactionHistoryScreen()),
+                  );
                 },
                 child: Text(
                   'DETAIL',
@@ -286,6 +318,8 @@ class DashboardTab extends StatelessWidget {
   }
 
   Widget _buildRecentActivitiesSection(BuildContext context, JamuProvider provider) {
+    final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -300,7 +334,7 @@ class DashboardTab extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ActivityHistoryScreen()),
+                  MaterialPageRoute(builder: (context) => const TransactionHistoryScreen()),
                 );
               },
               child: Text(
@@ -316,86 +350,223 @@ class DashboardTab extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        if (provider.recentActivities.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20.0),
-            child: Center(child: Text('Tidak ada aktivitas')),
-          )
-        else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: provider.recentActivities.length > 3 ? 3 : provider.recentActivities.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final activity = provider.recentActivities[index];
-              final isTemp = activity.type == 'temp';
-
-              return Container(
-                padding: const EdgeInsets.all(16.0),
-                decoration: BoxDecoration(
-                  color: JamuTheme.cardColor,
-                  borderRadius: JamuTheme.innerCardRadius,
-                  border: Border.all(color: JamuTheme.borderLight),
-                  boxShadow: JamuTheme.softShadow,
-                ),
-                child: Row(
-                  children: [
-                    // Left Icon
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: isTemp ? const Color(0xFFEDFBF3) : const Color(0xFFF1F2F6),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        isTemp ? Icons.check_circle_outline_rounded : Icons.shopping_cart_outlined,
-                        color: isTemp ? JamuTheme.statusGreenText : JamuTheme.textSecondary,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-
-                    // Title & Description
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            activity.title,
-                            style: JamuTheme.titleSmall.copyWith(
-                              color: JamuTheme.textPrimary,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            activity.description,
-                            style: JamuTheme.bodyMedium.copyWith(
-                              color: JamuTheme.textSecondary,
-                              fontSize: 12.5,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Time stamp
-                    Text(
-                      activity.timestamp,
-                      style: JamuTheme.bodySmall.copyWith(
-                        color: JamuTheme.textLight,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('transactions')
+              .orderBy('timestamp', descending: true)
+              .limit(3)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20.0),
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF114D32)),
+                  ),
                 ),
               );
-            },
-          ),
+            }
+
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20.0),
+                child: Center(
+                  child: Text(
+                    "Belum ada data",
+                    style: TextStyle(fontSize: 14, color: JamuTheme.textSecondary),
+                  ),
+                ),
+              );
+            }
+
+            final docs = snapshot.data!.docs;
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: docs.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final doc = docs[index];
+                final data = doc.data() as Map<String, dynamic>? ?? {};
+                
+                final List<dynamic> items = data['items'] ?? [];
+                final double amount = (data['amount'] ?? 0.0).toDouble();
+                
+                String timeStr = "Baru";
+                if (data['timestamp'] != null) {
+                  final t = (data['timestamp'] as Timestamp).toDate();
+                  timeStr = DateFormat('HH:mm').format(t);
+                }
+
+                return GestureDetector(
+                  onTap: () {
+                    final formattedProducts = '${items.length} Product\n' + items.map((e) {
+                      final nama = e['nama_produk'] ?? '';
+                      final qty = e['jumlah'] ?? 0;
+                      final harga = e['harga'] ?? 0;
+                      final total = qty * harga;
+                      return '$qty $nama Rp ${currencyFormat.format(total).replaceAll('Rp ', '').replaceAll(',', '.')}';
+                    }).join('\n');
+                    
+                    final activity = ActivityLog(
+                      id: doc.id,
+                      type: 'transaction',
+                      title: 'Transaksi Checkout',
+                      description: '$formattedProducts\nTotal Rp ${currencyFormat.format(amount).replaceAll('Rp ', '').replaceAll(',', '.')}',
+                      timestamp: timeStr,
+                    );
+                    _showActivityDetailDialog(context, activity);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: JamuTheme.cardColor,
+                      borderRadius: JamuTheme.innerCardRadius,
+                      border: Border.all(color: JamuTheme.borderLight),
+                      boxShadow: JamuTheme.softShadow,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Left Icon
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF1F2F6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.shopping_cart_outlined,
+                            color: JamuTheme.textSecondary,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+
+                        // Title & Loop items array to display detail text nama produk & jumlah
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Transaksi Checkout',
+                                style: JamuTheme.titleSmall.copyWith(
+                                  color: JamuTheme.textPrimary,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: items.map<Widget>((item) {
+                                  final namaProduk = item['nama_produk'] ?? '';
+                                  final jumlah = item['jumlah'] ?? 0;
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                    child: Text(
+                                      '${jumlah}x $namaProduk',
+                                      style: JamuTheme.bodyMedium.copyWith(
+                                        color: JamuTheme.textSecondary,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Time stamp & Total Price
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              timeStr,
+                              style: JamuTheme.bodySmall.copyWith(
+                                color: JamuTheme.textLight,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              currencyFormat.format(amount).replaceAll(',', '.'),
+                              style: GoogleFonts.outfit(
+                                color: JamuTheme.primaryGreen,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ],
+    );
+  }
+
+  void _showActivityDetailDialog(BuildContext context, ActivityLog activity) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(
+                activity.type == 'temp' ? Icons.thermostat_rounded : Icons.shopping_cart_rounded,
+                color: JamuTheme.primaryGreen,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Detail Aktivitas',
+                  style: JamuTheme.titleMedium.copyWith(fontSize: 18),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Waktu: ${activity.timestamp}',
+                style: JamuTheme.bodySmall.copyWith(color: JamuTheme.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                activity.title,
+                style: JamuTheme.titleSmall.copyWith(fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                activity.description,
+                style: JamuTheme.bodyMedium,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'TUTUP',
+                style: GoogleFonts.plusJakartaSans(
+                  color: JamuTheme.primaryGreen,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
