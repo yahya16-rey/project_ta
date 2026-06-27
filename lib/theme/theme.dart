@@ -38,44 +38,44 @@ class JamuTheme {
     ),
   ];
 
-  // Font & Typography Styles (Outfit/Inter preferred)
-  static TextStyle get titleLarge => GoogleFonts.outfit(
+  // Font & Typography Styles (Poppins)
+  static TextStyle get titleLarge => GoogleFonts.inter(
         fontSize: 24,
         fontWeight: FontWeight.bold,
         color: textPrimary,
       );
 
-  static TextStyle get titleMedium => GoogleFonts.outfit(
+  static TextStyle get titleMedium => GoogleFonts.inter(
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: textPrimary,
       );
 
-  static TextStyle get titleSmall => GoogleFonts.outfit(
+  static TextStyle get titleSmall => GoogleFonts.inter(
         fontSize: 14,
         fontWeight: FontWeight.bold,
         color: textPrimary,
       );
 
-  static TextStyle get bodyLarge => GoogleFonts.plusJakartaSans(
+  static TextStyle get bodyLarge => GoogleFonts.inter(
         fontSize: 16,
         fontWeight: FontWeight.normal,
         color: textPrimary,
       );
 
-  static TextStyle get bodyMedium => GoogleFonts.plusJakartaSans(
+  static TextStyle get bodyMedium => GoogleFonts.inter(
         fontSize: 14,
         fontWeight: FontWeight.normal,
         color: textSecondary,
       );
 
-  static TextStyle get bodySmall => GoogleFonts.plusJakartaSans(
+  static TextStyle get bodySmall => GoogleFonts.inter(
         fontSize: 12,
         fontWeight: FontWeight.normal,
         color: textLight,
       );
 
-  static TextStyle get caption => GoogleFonts.plusJakartaSans(
+  static TextStyle get caption => GoogleFonts.inter(
         fontSize: 10,
         fontWeight: FontWeight.w500,
         color: textLight,

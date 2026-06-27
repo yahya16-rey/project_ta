@@ -9,6 +9,7 @@ import '../providers/jamu_provider.dart';
 import '../models/jamu_models.dart';
 import 'activity_history_screen.dart';
 import 'transaction_history_screen.dart';
+import 'monthly_revenue_graph_screen.dart';
 
 class DashboardTab extends StatelessWidget {
   const DashboardTab({Key? key}) : super(key: key);
@@ -17,34 +18,15 @@ class DashboardTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('monitoring').doc('boiler').snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+    return Consumer<JamuProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) {
           return const Center(
             child: CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF114D32)),
             ),
           );
         }
-
-        if (!snapshot.hasData || !snapshot.data!.exists) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(20.0),
-              child: Text(
-                "Belum ada data",
-                style: TextStyle(fontSize: 16, color: JamuTheme.textSecondary),
-              ),
-            ),
-          );
-        }
-
-        final docData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-        final boilerData = BoilerData.fromMap(docData);
-
-        return Consumer<JamuProvider>(
-          builder: (context, provider, child) {
             return SingleChildScrollView(
               padding: EdgeInsets.only(left: 20.0, right: 20.0, top: 10.0, bottom: 90.0 + MediaQuery.of(context).padding.bottom),
               child: Column(
@@ -55,7 +37,7 @@ class DashboardTab extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   // Temperature Card
-                  _buildTemperatureCard(context, provider, boilerData),
+                  _buildTemperatureCard(context, provider, provider.boilerData),
                   const SizedBox(height: 16),
 
                   // Revenue Card
@@ -69,8 +51,6 @@ class DashboardTab extends StatelessWidget {
             );
           },
         );
-      },
-    );
   }
 
   Widget _buildWelcomeBanner() {
@@ -103,7 +83,7 @@ class DashboardTab extends StatelessWidget {
             children: [
               Text(
                 'SELAMAT DATANG',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.inter(
                   color: Colors.white.withOpacity(0.6),
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
@@ -113,7 +93,7 @@ class DashboardTab extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 'Halo, POS Jamu!',
-                style: GoogleFonts.outfit(
+                style: GoogleFonts.inter(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 32,
@@ -123,7 +103,7 @@ class DashboardTab extends StatelessWidget {
               const SizedBox(height: 14),
               Text(
                 'Sistem produksi Anda berjalan optimal hari ini.',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.inter(
                   color: Colors.white.withOpacity(0.8),
                   fontSize: 13,
                 ),
@@ -175,7 +155,7 @@ class DashboardTab extends StatelessWidget {
                 ),
                 child: Text(
                   status.toUpperCase(),
-                  style: GoogleFonts.plusJakartaSans(
+                  style: GoogleFonts.inter(
                     color: JamuTheme.primaryGreen,
                     fontWeight: FontWeight.bold,
                     fontSize: 10,
@@ -190,7 +170,7 @@ class DashboardTab extends StatelessWidget {
           // Middle row: Temp value
           Text(
             '${temp.toStringAsFixed(1)}°C',
-            style: GoogleFonts.outfit(
+            style: GoogleFonts.inter(
               fontSize: 38,
               fontWeight: FontWeight.bold,
               color: JamuTheme.textPrimary,
@@ -218,103 +198,7 @@ class DashboardTab extends StatelessWidget {
   }
 
   Widget _buildRevenueCard(BuildContext context, JamuProvider provider, NumberFormat currencyFormat) {
-    final revenue = provider.totalMonthlyRevenue;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20.0),
-      decoration: BoxDecoration(
-        color: JamuTheme.cardColor,
-        borderRadius: JamuTheme.cardRadius,
-        border: Border.all(color: JamuTheme.borderLight),
-        boxShadow: JamuTheme.softShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Top Row: Wallet Icon and DETAIL Action
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF1F2F6),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.account_balance_wallet_outlined,
-                  color: JamuTheme.textSecondary,
-                  size: 24,
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const TransactionHistoryScreen()),
-                  );
-                },
-                child: Text(
-                  'DETAIL',
-                  style: GoogleFonts.plusJakartaSans(
-                    color: JamuTheme.textPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Revenue Value
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              currencyFormat.format(revenue).replaceAll(',', '.'),
-              style: GoogleFonts.outfit(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: JamuTheme.textPrimary,
-              ),
-            ),
-          ),
-          Text(
-            'Pendapatan Bulan Ini',
-            style: JamuTheme.bodyMedium.copyWith(color: JamuTheme.textLight),
-          ),
-          const SizedBox(height: 24),
-
-          // Mini bar chart
-          _buildMiniBarChart(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMiniBarChart() {
-    // Mimics the mockup: 5 vertical bars, with the 4th highlighted in deep green
-    final heights = [10.0, 16.0, 24.0, 42.0, 20.0];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: List.generate(heights.length, (index) {
-        final isHighlighted = index == 3;
-        return Expanded(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4.0),
-            height: heights[index],
-            decoration: BoxDecoration(
-              color: isHighlighted ? JamuTheme.primaryGreen : const Color(0xFFE2E4E8),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-        );
-      }),
-    );
+    return RevenueCarousel(provider: provider, currencyFormat: currencyFormat);
   }
 
   Widget _buildRecentActivitiesSection(BuildContext context, JamuProvider provider) {
@@ -339,7 +223,7 @@ class DashboardTab extends StatelessWidget {
               },
               child: Text(
                 'LIHAT SEMUA',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.inter(
                   color: JamuTheme.primaryGreenLight,
                   fontWeight: FontWeight.bold,
                   fontSize: 11,
@@ -350,25 +234,9 @@ class DashboardTab extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('transactions')
-              .orderBy('timestamp', descending: true)
-              .limit(3)
-              .snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20.0),
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF114D32)),
-                  ),
-                ),
-              );
-            }
-
-            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        Builder(
+          builder: (context) {
+            if (provider.recentTransactions.isEmpty) {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20.0),
                 child: Center(
@@ -380,55 +248,52 @@ class DashboardTab extends StatelessWidget {
               );
             }
 
-            final docs = snapshot.data!.docs;
+            final txs = provider.recentTransactions.take(3).toList();
             return ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: docs.length,
+              itemCount: txs.length,
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
-                final doc = docs[index];
-                final data = doc.data() as Map<String, dynamic>? ?? {};
-                
-                final List<dynamic> items = data['items'] ?? [];
-                final double amount = (data['amount'] ?? 0.0).toDouble();
-                
-                String timeStr = "Baru";
-                if (data['timestamp'] != null) {
-                  final t = (data['timestamp'] as Timestamp).toDate();
-                  timeStr = DateFormat('HH:mm').format(t);
-                }
+                final tx = txs[index];
+                final items = tx.items ?? [];
+                final double amount = tx.amount;
+                final String timeStr = tx.timestamp;
 
-                return GestureDetector(
-                  onTap: () {
-                    final formattedProducts = '${items.length} Product\n' + items.map((e) {
-                      final nama = e['nama_produk'] ?? '';
-                      final qty = e['jumlah'] ?? 0;
-                      final harga = e['harga'] ?? 0;
-                      final total = qty * harga;
-                      return '$qty $nama Rp ${currencyFormat.format(total).replaceAll('Rp ', '').replaceAll(',', '.')}';
-                    }).join('\n');
-                    
-                    final activity = ActivityLog(
-                      id: doc.id,
-                      type: 'transaction',
-                      title: 'Transaksi Checkout',
-                      description: '$formattedProducts\nTotal Rp ${currencyFormat.format(amount).replaceAll('Rp ', '').replaceAll(',', '.')}',
-                      timestamp: timeStr,
-                    );
-                    _showActivityDetailDialog(context, activity);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(16.0),
-                    decoration: BoxDecoration(
-                      color: JamuTheme.cardColor,
+                return Container(
+                  decoration: BoxDecoration(
+                    color: JamuTheme.cardColor,
+                    borderRadius: JamuTheme.innerCardRadius,
+                    border: Border.all(color: JamuTheme.borderLight),
+                    boxShadow: JamuTheme.softShadow,
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
                       borderRadius: JamuTheme.innerCardRadius,
-                      border: Border.all(color: JamuTheme.borderLight),
-                      boxShadow: JamuTheme.softShadow,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                      onTap: () {
+                        final formattedProducts = '${items.length} Product\n' + items.map((e) {
+                          final nama = e.name;
+                          final qty = e.quantity;
+                          final harga = e.price;
+                          final total = qty * harga;
+                          return '$qty $nama Rp ${currencyFormat.format(total).replaceAll('Rp ', '').replaceAll(',', '.')}';
+                        }).join('\n');
+                        
+                        final activity = ActivityLog(
+                          id: tx.id,
+                          type: 'transaction',
+                          title: 'Transaksi Checkout',
+                          description: '$formattedProducts\nTotal Rp ${currencyFormat.format(amount).replaceAll('Rp ', '').replaceAll(',', '.')}',
+                          timestamp: timeStr,
+                        );
+                        _showActivityDetailDialog(context, activity);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                         // Left Icon
                         Container(
                           padding: const EdgeInsets.all(10),
@@ -460,8 +325,8 @@ class DashboardTab extends StatelessWidget {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: items.map<Widget>((item) {
-                                  final namaProduk = item['nama_produk'] ?? '';
-                                  final jumlah = item['jumlah'] ?? 0;
+                                  final namaProduk = item.name;
+                                  final jumlah = item.quantity;
                                   return Padding(
                                     padding: const EdgeInsets.symmetric(vertical: 2.0),
                                     child: Text(
@@ -492,7 +357,7 @@ class DashboardTab extends StatelessWidget {
                             const SizedBox(height: 6),
                             Text(
                               currencyFormat.format(amount).replaceAll(',', '.'),
-                              style: GoogleFonts.outfit(
+                              style: GoogleFonts.inter(
                                 color: JamuTheme.primaryGreen,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
@@ -503,8 +368,10 @@ class DashboardTab extends StatelessWidget {
                       ],
                     ),
                   ),
-                );
-              },
+                ),
+              ),
+            );
+          },
             );
           },
         ),
@@ -513,58 +380,108 @@ class DashboardTab extends StatelessWidget {
   }
 
   void _showActivityDetailDialog(BuildContext context, ActivityLog activity) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
-            children: [
-              Icon(
-                activity.type == 'temp' ? Icons.thermostat_rounded : Icons.shopping_cart_rounded,
-                color: JamuTheme.primaryGreen,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Detail Aktivitas',
-                  style: JamuTheme.titleMedium.copyWith(fontSize: 18),
-                ),
-              ),
-            ],
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          content: Column(
+          padding: const EdgeInsets.all(24),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Waktu: ${activity.timestamp}',
-                style: JamuTheme.bodySmall.copyWith(color: JamuTheme.textSecondary),
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: activity.type == 'temp' ? JamuTheme.warningOrangeBg : JamuTheme.statusGreenBg,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      activity.type == 'temp' ? Icons.thermostat_rounded : Icons.shopping_cart_rounded,
+                      color: activity.type == 'temp' ? JamuTheme.warningOrangeText : JamuTheme.statusGreenText,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Detail Aktivitas',
+                          style: JamuTheme.titleMedium.copyWith(fontSize: 18),
+                        ),
+                        Text(
+                          'Waktu: ${activity.timestamp}',
+                          style: JamuTheme.bodySmall.copyWith(color: JamuTheme.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
               Text(
                 activity.title,
                 style: JamuTheme.titleSmall.copyWith(fontSize: 16),
               ),
-              const SizedBox(height: 8),
-              Text(
-                activity.description,
-                style: JamuTheme.bodyMedium,
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: JamuTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: JamuTheme.borderLight),
+                ),
+                child: Text(
+                  activity.description,
+                  style: JamuTheme.bodyMedium.copyWith(height: 1.5),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: JamuTheme.primaryGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    'TUTUP',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                'TUTUP',
-                style: GoogleFonts.plusJakartaSans(
-                  color: JamuTheme.primaryGreen,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
         );
       },
     );
@@ -636,4 +553,164 @@ class SparklinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class RevenueCarousel extends StatefulWidget {
+  final JamuProvider provider;
+  final NumberFormat currencyFormat;
+
+  const RevenueCarousel({Key? key, required this.provider, required this.currencyFormat}) : super(key: key);
+
+  @override
+  State<RevenueCarousel> createState() => _RevenueCarouselState();
+}
+
+class _RevenueCarouselState extends State<RevenueCarousel> {
+  int _currentIndex = 0;
+  late PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _currentIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final List<String> months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    final monthName = months[now.month - 1];
+    
+    final todayStr = '${now.day} $monthName ${now.year}';
+    final monthStr = '$monthName ${now.year}';
+    final yearStr = '${now.year}';
+
+    final tabs = ['Hari Ini', 'Bulan Ini', 'Tahun Ini'];
+    final amounts = [
+      widget.provider.totalDailyRevenue,
+      widget.provider.totalMonthlyRevenue,
+      widget.provider.totalYearlyRevenue,
+    ];
+    final dates = [todayStr, monthStr, yearStr];
+    // Map indices to the filter index in TransactionHistoryScreen (0: Hari, 1: Bulan, 2: Tahun)
+    final filterIndices = [0, 1, 2];
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 180,
+          child: PageView.builder(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() => _currentIndex = index);
+            },
+            itemCount: 3,
+            itemBuilder: (context, index) {
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2.0),
+                padding: const EdgeInsets.all(20.0),
+                decoration: BoxDecoration(
+                  color: JamuTheme.cardColor,
+                  borderRadius: JamuTheme.cardRadius,
+                  border: Border.all(color: JamuTheme.borderLight),
+                  boxShadow: JamuTheme.softShadow,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF1F2F6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.account_balance_wallet_outlined,
+                            color: JamuTheme.textSecondary,
+                            size: 24,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => TransactionHistoryScreen(
+                                  initialFilterIndex: filterIndices[index],
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: JamuTheme.primaryGreenLight.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'DETAIL',
+                              style: GoogleFonts.inter(
+                                color: JamuTheme.primaryGreenDark,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        widget.currencyFormat.format(amounts[index]).replaceAll(',', '.'),
+                        style: GoogleFonts.inter(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: JamuTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'Pendapatan ${tabs[index]}',
+                      style: JamuTheme.bodyMedium.copyWith(color: JamuTheme.textLight),
+                    ),
+                    Text(
+                      dates[index],
+                      style: JamuTheme.bodySmall.copyWith(color: JamuTheme.textSecondary),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(3, (index) => AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            width: _currentIndex == index ? 24 : 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: _currentIndex == index ? JamuTheme.primaryGreen : JamuTheme.borderLight,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          )),
+        ),
+      ],
+    );
+  }
 }

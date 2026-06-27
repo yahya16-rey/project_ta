@@ -20,7 +20,7 @@ class ActivityHistoryScreen extends StatelessWidget {
         ),
         title: Text(
           'Log Aktivitas Terkini',
-          style: GoogleFonts.outfit(
+          style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: JamuTheme.textPrimary,
@@ -166,7 +166,7 @@ class ActivityHistoryScreen extends StatelessWidget {
               onPressed: () => Navigator.pop(ctx),
               child: Text(
                 'TUTUP',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.inter(
                   color: JamuTheme.primaryGreen,
                   fontWeight: FontWeight.bold,
                 ),

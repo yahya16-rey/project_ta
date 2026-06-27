@@ -17,11 +17,17 @@ class JamuProvider with ChangeNotifier {
   double _targetTemperature = 32.5;
   String _lastUpdatedTime = "10:30 WIB";
   
+  double _totalDailyRevenue = 0.0;
   double _totalMonthlyRevenue = 0.0;
+  double _totalYearlyRevenue = 0.0;
   double _revenuePercentageIncrease = 0.0;
   double _stockLevel = 100.0; // 100%
   int _transactionsCountToday = 0;
   bool _isIotConnected = true;
+
+  // Monthly graph data (daily revenue for this month)
+  List<double> _monthlyDailyRevenue = [];
+  String _lastSyncDateStr = "";
 
   List<TemperatureReading> _tempHistory = [];
   List<TransactionData> _recentTransactions = [];
@@ -43,11 +49,14 @@ class JamuProvider with ChangeNotifier {
   BoilerData get boilerData => _boilerData;
   double get targetTemperature => _targetTemperature;
   String get lastUpdatedTime => _lastUpdatedTime;
+  double get totalDailyRevenue => _totalDailyRevenue;
   double get totalMonthlyRevenue => _totalMonthlyRevenue;
+  double get totalYearlyRevenue => _totalYearlyRevenue;
   double get revenuePercentageIncrease => _revenuePercentageIncrease;
   double get stockLevel => _stockLevel;
   int get transactionsCountToday => _transactionsCountToday;
   bool get isIotConnected => _isIotConnected;
+  List<double> get monthlyDailyRevenue => _monthlyDailyRevenue;
 
   List<TemperatureReading> get tempHistory => _tempHistory;
   List<TransactionData> get recentTransactions => _recentTransactions;
@@ -99,7 +108,9 @@ class JamuProvider with ChangeNotifier {
     }
 
     // Load Revenue
+    _totalDailyRevenue = prefs.getDouble('totalDailyRevenue') ?? 0.0;
     _totalMonthlyRevenue = prefs.getDouble('totalMonthlyRevenue') ?? 0.0;
+    _totalYearlyRevenue = prefs.getDouble('totalYearlyRevenue') ?? 0.0;
     _transactionsCountToday = prefs.getInt('transactionsCountToday') ?? 0;
 
     // Load Transactions
@@ -108,14 +119,19 @@ class JamuProvider with ChangeNotifier {
       final List decoded = jsonDecode(txStr);
       _recentTransactions = decoded.map((e) => TransactionData.fromJsonMap(e)).toList();
     }
+    
+    _lastSyncDateStr = prefs.getString('lastSyncDate') ?? "";
   }
 
   Future<void> _saveLocalData() async {
     final prefs = await SharedPreferences.getInstance();
     prefs.setString('catalogMenu', jsonEncode(_catalogMenu.map((e) => e.toMap()).toList()));
+    prefs.setDouble('totalDailyRevenue', _totalDailyRevenue);
     prefs.setDouble('totalMonthlyRevenue', _totalMonthlyRevenue);
+    prefs.setDouble('totalYearlyRevenue', _totalYearlyRevenue);
     prefs.setInt('transactionsCountToday', _transactionsCountToday);
     prefs.setString('recentTransactions', jsonEncode(_recentTransactions.map((e) => e.toMap()).toList()));
+    prefs.setString('lastSyncDate', _lastSyncDateStr);
   }
 
   // Set up Firebase listeners
@@ -124,6 +140,9 @@ class JamuProvider with ChangeNotifier {
     _isFirebaseConnected = true;
     _isLoading = false;
     notifyListeners();
+    
+    // Sync revenue on startup
+    _syncRevenueFromTransactions();
 
     _boilerSub = firestore.collection('monitoring').doc('boiler').snapshots().listen((doc) {
       if (doc.exists && doc.data() != null) {
@@ -190,6 +209,8 @@ class JamuProvider with ChangeNotifier {
     _summarySub = firestore.collection('revenue').doc('summary').snapshots().listen((doc) {
       if (doc.exists && doc.data() != null) {
         _totalMonthlyRevenue = (doc.data()?['totalMonthlyRevenue'] ?? 0.0).toDouble();
+        _totalDailyRevenue = (doc.data()?['totalDailyRevenue'] ?? (_totalMonthlyRevenue / 30)).toDouble(); // Mock if missing
+        _totalYearlyRevenue = (doc.data()?['totalYearlyRevenue'] ?? (_totalMonthlyRevenue * 12)).toDouble(); // Mock if missing
         _revenuePercentageIncrease = (doc.data()?['percentChange'] ?? 0.0).toDouble();
         _transactionsCountToday = (doc.data()?['transactionsCountToday'] ?? 0).toInt();
         notifyListeners();
@@ -203,6 +224,97 @@ class JamuProvider with ChangeNotifier {
         notifyListeners();
       }
     }, onError: (e) => debugPrint('Error inventory stream: $e'));
+  }
+
+  Future<void> toggleMotor(bool isOn) async {
+    // 1. Update secara lokal agar UI merespon cepat
+    _boilerData = BoilerData(
+      temperature: _boilerData.temperature,
+      status: isOn ? 'NORMAL' : 'OFF'
+    );
+    notifyListeners();
+
+    // 2. Update ke Firebase jika terhubung
+    if (_isFirebaseConnected) {
+      try {
+        await FirebaseFirestore.instance.collection('monitoring').doc('boiler').set({
+          'status': isOn ? 'NORMAL' : 'OFF',
+          'lastUpdated': DateFormat('HH:mm').format(DateTime.now()) + " WIB",
+        }, SetOptions(merge: true));
+      } catch (e) {
+        debugPrint("Error toggling motor to Firebase: $e");
+      }
+    }
+  }
+
+  Future<void> _syncRevenueFromTransactions() async {
+    if (!_isFirebaseConnected) return;
+
+    try {
+      final now = DateTime.now();
+      final todayStr = DateFormat('yyyy-MM-dd').format(now);
+      
+      // Get all transactions
+      final snapshot = await FirebaseFirestore.instance.collection('transactions').get();
+      
+      double daily = 0;
+      double monthly = 0;
+      double yearly = 0;
+      int countToday = 0;
+      
+      // Initialize days in month array for graph
+      int daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+      List<double> monthGraph = List.filled(daysInMonth, 0.0);
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        DateTime t;
+        if (data['timestamp'] == null) {
+          t = now; // Pending local write
+        } else {
+          t = (data['timestamp'] as Timestamp).toDate();
+        }
+        
+        final amount = (data['amount'] ?? 0.0).toDouble();
+        
+        if (t.year == now.year) {
+          yearly += amount;
+          
+          if (t.month == now.month) {
+            monthly += amount;
+            // Add to daily index (day is 1-indexed, so -1 for array)
+            monthGraph[t.day - 1] += amount;
+            
+            if (t.day == now.day) {
+              daily += amount;
+              countToday += (data['items'] as List?)?.length ?? 1;
+            }
+          }
+        }
+      }
+
+      _totalDailyRevenue = daily;
+      _totalMonthlyRevenue = monthly;
+      _totalYearlyRevenue = yearly;
+      _transactionsCountToday = countToday;
+      _monthlyDailyRevenue = monthGraph;
+      _lastSyncDateStr = todayStr;
+      
+      // Save to summary
+      await FirebaseFirestore.instance.collection('revenue').doc('summary').set({
+        'totalDailyRevenue': daily,
+        'totalMonthlyRevenue': monthly,
+        'totalYearlyRevenue': yearly,
+        'transactionsCountToday': countToday,
+        'lastSyncDate': todayStr,
+      }, SetOptions(merge: true));
+      
+      _saveLocalData();
+      notifyListeners();
+      debugPrint("Sync revenue success");
+    } catch (e) {
+      debugPrint("Error syncing revenue: $e");
+    }
   }
 
   void _setupEmptyState() {
@@ -229,6 +341,12 @@ class JamuProvider with ChangeNotifier {
 
   void clearCart() {
     _cartItems.clear();
+    notifyListeners();
+  }
+
+  void deleteProduct(ProductMenu product) {
+    _catalogMenu.removeWhere((p) => p.name == product.name);
+    _saveLocalData();
     notifyListeners();
   }
 
@@ -262,7 +380,7 @@ class JamuProvider with ChangeNotifier {
         batch.set(txRef, {
           'items': itemsList,
           'amount': totalAmount,
-          'timestamp': FieldValue.serverTimestamp(),
+          'timestamp': Timestamp.now(),
         });
         
         final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
@@ -276,7 +394,7 @@ class JamuProvider with ChangeNotifier {
           'type': 'transaction',
           'title': 'Transaksi Checkout',
           'description': '$detailDesc\nTotal Rp ${currencyFormat.format(totalAmount).replaceAll('Rp ', '').replaceAll(',', '.')}',
-          'timestamp': FieldValue.serverTimestamp(),
+          'timestamp': Timestamp.now(),
         });
 
         final summaryRef = firestore.collection('revenue').doc('summary');
@@ -291,9 +409,13 @@ class JamuProvider with ChangeNotifier {
           'stockPercentage': FieldValue.increment(stockChange < -10 ? -10.0 : stockChange),
         }, SetOptions(merge: true));
 
-        await batch.commit();
+        batch.commit().catchError((e) {
+          debugPrint("Batch commit deferred/error: $e");
+        });
+        
+        await _syncRevenueFromTransactions();
         clearCart();
-        return; // Success Firebase
+        return; // Success Firebase (or queued locally)
       } catch (e) {
         debugPrint("Error pushing batch to Firebase, doing locally: $e");
       }
@@ -346,6 +468,18 @@ class JamuProvider with ChangeNotifier {
     }
 
     _totalMonthlyRevenue += totalAmount;
+    _totalDailyRevenue += totalAmount;
+    _totalYearlyRevenue += totalAmount;
+    
+    // Update local graph
+    if (_monthlyDailyRevenue.isNotEmpty) {
+      final now = DateTime.now();
+      int dayIndex = now.day - 1;
+      if (dayIndex >= 0 && dayIndex < _monthlyDailyRevenue.length) {
+        _monthlyDailyRevenue[dayIndex] += totalAmount;
+      }
+    }
+    
     _transactionsCountToday += _cartItems.length;
     _stockLevel -= (0.5 * totalQty);
     if (_stockLevel < 0) _stockLevel = 0.0;

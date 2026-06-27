@@ -29,7 +29,7 @@ class ProfileTab extends StatelessWidget {
               // Name & Contact Info
               Text(
                 authProvider.userName,
-                style: GoogleFonts.outfit(
+                style: GoogleFonts.inter(
                   color: JamuTheme.textPrimary,
                   fontWeight: FontWeight.bold,
                   fontSize: 22,
@@ -92,7 +92,7 @@ class ProfileTab extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         'Keluar Akun',
-                        style: GoogleFonts.plusJakartaSans(
+                        style: GoogleFonts.inter(
                           color: JamuTheme.dangerRedText,
                           fontWeight: FontWeight.bold,
                         ),
@@ -107,6 +107,14 @@ class ProfileTab extends StatelessWidget {
               Text(
                 'Versi Aplikasi 2.4.0-stable',
                 style: JamuTheme.caption.copyWith(color: JamuTheme.textLight, fontSize: 11),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '© POS Jamu x Universitas Harkat Negeri',
+                style: GoogleFonts.inter(
+                  color: JamuTheme.textLight,
+                  fontSize: 12,
+                ),
               ),
               const SizedBox(height: 40),
             ],

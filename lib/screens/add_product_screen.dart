@@ -83,7 +83,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         ),
         title: Text(
           'Tambah Produk Baru',
-          style: GoogleFonts.outfit(
+          style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: JamuTheme.textPrimary,
@@ -131,7 +131,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                               const SizedBox(height: 12),
                               Text(
                                 'Pilih Gambar Produk',
-                                style: GoogleFonts.plusJakartaSans(
+                                style: GoogleFonts.inter(
                                   color: JamuTheme.textSecondary,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
@@ -152,7 +152,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
               // Product Name Field
               Text(
                 'Nama Produk',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.inter(
                   color: JamuTheme.textSecondary,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
@@ -191,7 +191,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
               // Product Price Field
               Text(
                 'Harga Produk (Rp)',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.inter(
                   color: JamuTheme.textSecondary,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
@@ -245,7 +245,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   ),
                   child: Text(
                     'Simpan Produk',
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.inter(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,

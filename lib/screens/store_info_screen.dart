@@ -18,7 +18,7 @@ class StoreInfoScreen extends StatelessWidget {
         ),
         title: Text(
           'Informasi Toko',
-          style: GoogleFonts.outfit(
+          style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: JamuTheme.textPrimary,
@@ -54,7 +54,7 @@ class StoreInfoScreen extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.plusJakartaSans(
+            style: GoogleFonts.inter(
               color: JamuTheme.textSecondary,
               fontWeight: FontWeight.bold,
               fontSize: 12,

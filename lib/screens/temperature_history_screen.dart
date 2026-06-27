@@ -20,7 +20,7 @@ class TemperatureHistoryScreen extends StatelessWidget {
         ),
         title: Text(
           'Riwayat Update Suhu IoT',
-          style: GoogleFonts.outfit(
+          style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: JamuTheme.textPrimary,
@@ -95,7 +95,7 @@ class TemperatureHistoryScreen extends StatelessWidget {
                     ),
                     Text(
                       '${reading.temperature.toStringAsFixed(1)}°C',
-                      style: GoogleFonts.outfit(
+                      style: GoogleFonts.inter(
                         color: JamuTheme.textPrimary,
                         fontWeight: FontWeight.bold,
                         fontSize: 15,

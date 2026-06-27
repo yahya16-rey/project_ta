@@ -205,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   // Text
                   Text(
                     'Login Admin',
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.inter(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
                       color: JamuTheme.textPrimary,
@@ -214,7 +214,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 8),
                   Text(
                     'Silakan masuk ke akun POS Jamu Anda',
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.inter(
                       fontSize: 14,
                       color: JamuTheme.textSecondary,
                     ),
@@ -294,7 +294,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Text(
                         'Lupa Kata Sandi?',
-                        style: GoogleFonts.plusJakartaSans(
+                        style: GoogleFonts.inter(
                           color: JamuTheme.primaryGreen,
                           fontWeight: FontWeight.bold,
                         ),
@@ -320,13 +320,22 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? const CircularProgressIndicator(color: Colors.white)
                           : Text(
                               'Masuk',
-                              style: GoogleFonts.plusJakartaSans(
+                              style: GoogleFonts.inter(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
                                 letterSpacing: 1.2,
                               ),
                             ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  // Copyright Text
+                  Text(
+                    '© POS Jamu x Universitas Harkat Negeri',
+                    style: GoogleFonts.inter(
+                      color: JamuTheme.textLight,
+                      fontSize: 12,
                     ),
                   ),
                 ],

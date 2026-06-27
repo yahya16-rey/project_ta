@@ -8,6 +8,7 @@ import '../providers/jamu_provider.dart';
 import '../models/jamu_models.dart';
 import 'add_product_screen.dart';
 import 'transaction_history_screen.dart';
+import 'monthly_revenue_graph_screen.dart';
 
 
 class RevenueTab extends StatefulWidget {
@@ -127,14 +128,14 @@ class _RevenueTabState extends State<RevenueTab> {
                               children: [
                                 Text(
                                   '${provider.cartItems.length} Produk di Keranjang',
-                                  style: GoogleFonts.plusJakartaSans(
+                                  style: GoogleFonts.inter(
                                     color: Colors.white70,
                                     fontSize: 12,
                                   ),
                                 ),
                                 Text(
                                   currencyFormat.format(provider.cartTotal).replaceAll(',', '.'),
-                                  style: GoogleFonts.outfit(
+                                  style: GoogleFonts.inter(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 18,
@@ -146,7 +147,7 @@ class _RevenueTabState extends State<RevenueTab> {
                               children: [
                                 Text(
                                   _isSaving ? 'Menyimpan...' : 'Checkout',
-                                  style: GoogleFonts.plusJakartaSans(
+                                  style: GoogleFonts.inter(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
@@ -195,7 +196,7 @@ class _RevenueTabState extends State<RevenueTab> {
               children: [
                 Text(
                   'TOTAL PENDAPATAN BULAN INI',
-                  style: GoogleFonts.plusJakartaSans(
+                  style: GoogleFonts.inter(
                     color: JamuTheme.textLight,
                     fontWeight: FontWeight.bold,
                     fontSize: 10,
@@ -208,7 +209,7 @@ class _RevenueTabState extends State<RevenueTab> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     currencyFormat.format(provider.totalMonthlyRevenue).replaceAll(',', '.'),
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.inter(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: JamuTheme.textPrimary,
@@ -226,7 +227,7 @@ class _RevenueTabState extends State<RevenueTab> {
                     const SizedBox(width: 4),
                     Text(
                       '+${provider.revenuePercentageIncrease.toStringAsFixed(0)}% dari bulan lalu',
-                      style: GoogleFonts.plusJakartaSans(
+                      style: GoogleFonts.inter(
                         color: JamuTheme.primaryGreenLight,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
@@ -238,22 +239,30 @@ class _RevenueTabState extends State<RevenueTab> {
             ),
           ),
           // Small bar chart graphic representation
-          Container(
-            width: 55,
-            height: 45,
-            decoration: BoxDecoration(
-              color: JamuTheme.statusGreenBg,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _buildCardBar(12),
-                _buildCardBar(22),
-                _buildCardBar(35),
-                _buildCardBar(28),
-              ],
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const MonthlyRevenueGraphScreen()),
+              );
+            },
+            child: Container(
+              width: 55,
+              height: 45,
+              decoration: BoxDecoration(
+                color: JamuTheme.statusGreenBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _buildCardBar(12),
+                  _buildCardBar(22),
+                  _buildCardBar(35),
+                  _buildCardBar(28),
+                ],
+              ),
             ),
           ),
         ],
@@ -301,7 +310,7 @@ class _RevenueTabState extends State<RevenueTab> {
                     const SizedBox(width: 4),
                     Text(
                       'Tambah Produk',
-                      style: GoogleFonts.plusJakartaSans(
+                      style: GoogleFonts.inter(
                         color: JamuTheme.primaryGreen,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
@@ -344,19 +353,42 @@ class _RevenueTabState extends State<RevenueTab> {
                   children: [
                     Expanded(
                       flex: 3,
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                        child: menu.imagePath.startsWith('assets/')
-                            ? Image.asset(
-                                menu.imagePath,
-                                fit: BoxFit.cover,
-                                errorBuilder: (ctx, err, stack) => const Icon(Icons.image_not_supported, color: Colors.grey),
-                              )
-                            : Image.file(
-                                File(menu.imagePath),
-                                fit: BoxFit.cover,
-                                errorBuilder: (ctx, err, stack) => const Icon(Icons.image_not_supported, color: Colors.grey),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: ClipRRect(
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                              child: menu.imagePath.startsWith('assets/')
+                                  ? Image.asset(
+                                      menu.imagePath,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (ctx, err, stack) => const Icon(Icons.image_not_supported, color: Colors.grey),
+                                    )
+                                  : Image.file(
+                                      File(menu.imagePath),
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (ctx, err, stack) => const Icon(Icons.image_not_supported, color: Colors.grey),
+                                    ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: GestureDetector(
+                              onTap: () {
+                                _showDeleteConfirmDialog(context, provider, menu);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
                               ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     Expanded(
@@ -376,7 +408,7 @@ class _RevenueTabState extends State<RevenueTab> {
                             const SizedBox(height: 4),
                             Text(
                               'Rp ${menu.price.toInt()}',
-                              style: GoogleFonts.outfit(
+                              style: GoogleFonts.inter(
                                 color: JamuTheme.primaryGreen,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
@@ -454,7 +486,7 @@ class _RevenueTabState extends State<RevenueTab> {
                             const SizedBox(height: 4),
                             Text(
                               'Rp ${menu.price.toInt()}',
-                              style: GoogleFonts.outfit(
+                              style: GoogleFonts.inter(
                                 color: JamuTheme.primaryGreen,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -468,7 +500,7 @@ class _RevenueTabState extends State<RevenueTab> {
                   const SizedBox(height: 30),
                   Text(
                     'Pilih Jumlah',
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.inter(
                       color: JamuTheme.textSecondary,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
@@ -489,7 +521,7 @@ class _RevenueTabState extends State<RevenueTab> {
                       const SizedBox(width: 24),
                       Text(
                         localQty.toString(),
-                        style: GoogleFonts.outfit(
+                        style: GoogleFonts.inter(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
                           color: JamuTheme.textPrimary,
@@ -519,7 +551,7 @@ class _RevenueTabState extends State<RevenueTab> {
                       ),
                       child: Text(
                         'Tambahkan ke Keranjang',
-                        style: GoogleFonts.plusJakartaSans(
+                        style: GoogleFonts.inter(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -557,7 +589,7 @@ class _RevenueTabState extends State<RevenueTab> {
               },
               child: Text(
                 'LIHAT SEMUA',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.inter(
                   color: JamuTheme.primaryGreenLight,
                   fontWeight: FontWeight.bold,
                   fontSize: 11,
@@ -624,7 +656,7 @@ class _RevenueTabState extends State<RevenueTab> {
                   // Price
                   Text(
                     currencyFormat.format(tx.amount).replaceAll(',', '.'),
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.inter(
                       color: JamuTheme.textPrimary,
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
@@ -723,7 +755,7 @@ class _RevenueTabState extends State<RevenueTab> {
                     },
                     child: Text(
                       'KOSONGKAN',
-                      style: GoogleFonts.plusJakartaSans(
+                      style: GoogleFonts.inter(
                         color: JamuTheme.dangerRedText,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
@@ -749,7 +781,7 @@ class _RevenueTabState extends State<RevenueTab> {
                         children: [
                           Text(
                             currencyFormat.format(item.totalAmount).replaceAll(',', '.'),
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                            style: GoogleFonts.inter(fontWeight: FontWeight.bold),
                           ),
                           IconButton(
                             icon: const Icon(Icons.remove_circle_outline, color: JamuTheme.dangerRedText, size: 20),
@@ -780,7 +812,7 @@ class _RevenueTabState extends State<RevenueTab> {
                     Text('Total Checkout', style: JamuTheme.titleSmall),
                     Text(
                       currencyFormat.format(provider.cartTotal).replaceAll(',', '.'),
-                      style: GoogleFonts.outfit(
+                      style: GoogleFonts.inter(
                         color: JamuTheme.primaryGreen,
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
@@ -802,7 +834,7 @@ class _RevenueTabState extends State<RevenueTab> {
                       ),
                       child: Text(
                         'Kembali',
-                        style: GoogleFonts.plusJakartaSans(color: JamuTheme.textSecondary, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.inter(color: JamuTheme.textSecondary, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -830,7 +862,7 @@ class _RevenueTabState extends State<RevenueTab> {
                       ),
                       child: Text(
                         'Checkout Sekarang',
-                        style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -839,6 +871,54 @@ class _RevenueTabState extends State<RevenueTab> {
               const SizedBox(height: 20),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmDialog(BuildContext context, JamuProvider provider, ProductMenu menu) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            'Hapus Produk?',
+            style: JamuTheme.titleMedium,
+          ),
+          content: Text(
+            'Apakah Anda yakin ingin menghapus ${menu.name} dari katalog? Tindakan ini tidak dapat dibatalkan.',
+            style: JamuTheme.bodyMedium,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Batal',
+                style: GoogleFonts.inter(color: JamuTheme.textSecondary, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                provider.deleteProduct(menu);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${menu.name} berhasil dihapus.'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(
+                'Hapus',
+                style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
         );
       },
     );

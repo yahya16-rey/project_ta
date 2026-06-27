@@ -54,23 +54,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return AppBar(
       title: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: JamuTheme.lightMintBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Image.asset(
-              'assets/images/logo.png',
-              width: 28,
-              height: 28,
-              fit: BoxFit.cover,
-            ),
-          ),
-          const SizedBox(width: 12),
           Text(
             'POS Jamu',
-            style: GoogleFonts.outfit(
+            style: GoogleFonts.inter(
               color: JamuTheme.textPrimary,
               fontWeight: FontWeight.bold,
               fontSize: 22,
@@ -174,7 +160,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(width: 6),
             Text(
               label,
-              style: GoogleFonts.plusJakartaSans(
+              style: GoogleFonts.inter(
                 color: JamuTheme.primaryGreen, // Dark Green Text
                 fontWeight: FontWeight.bold,
                 fontSize: 11,
@@ -202,7 +188,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 4),
             Text(
               label,
-              style: GoogleFonts.plusJakartaSans(
+              style: GoogleFonts.inter(
                 color: JamuTheme.textLight,
                 fontWeight: FontWeight.w600,
                 fontSize: 9,

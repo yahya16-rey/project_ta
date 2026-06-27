@@ -77,7 +77,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         ),
         title: Text(
           'Ubah Kata Sandi',
-          style: GoogleFonts.outfit(
+          style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: JamuTheme.textPrimary,
@@ -106,7 +106,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               // Current Password Field
               Text(
                 'Kata Sandi Saat Ini',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.inter(
                   color: JamuTheme.textSecondary,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
@@ -152,7 +152,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               // New Password Field
               Text(
                 'Kata Sandi Baru',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.inter(
                   color: JamuTheme.textSecondary,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
@@ -201,7 +201,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               // Confirm Password Field
               Text(
                 'Konfirmasi Kata Sandi Baru',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.inter(
                   color: JamuTheme.textSecondary,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
@@ -263,7 +263,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       ? const CircularProgressIndicator(color: Colors.white)
                       : Text(
                           'Perbarui Kata Sandi',
-                          style: GoogleFonts.plusJakartaSans(
+                          style: GoogleFonts.inter(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
@@ -326,7 +326,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   },
                   child: Text(
                     'Lupa Kata Sandi? Kirim Email Reset',
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.inter(
                       color: JamuTheme.primaryGreen,
                       fontWeight: FontWeight.bold,
                       decoration: TextDecoration.underline,

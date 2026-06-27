@@ -18,7 +18,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
         ),
         title: Text(
           'Kebijakan Privasi',
-          style: GoogleFonts.outfit(
+          style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: JamuTheme.textPrimary,

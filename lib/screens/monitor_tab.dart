@@ -72,8 +72,12 @@ class MonitorTab extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 24),
+              
+              // 3. Mesin Control Switch
+              _buildMotorControlCard(provider),
+              const SizedBox(height: 24),
 
-              // 3. Fluctuation Trend Card
+              // 4. Fluctuation Trend Card
               _buildTrendCard(provider),
               const SizedBox(height: 24),
 
@@ -127,7 +131,7 @@ class MonitorTab extends StatelessWidget {
             children: [
               Text(
                 'SUHU SAAT INI',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.inter(
                   color: JamuTheme.textLight,
                   fontWeight: FontWeight.bold,
                   fontSize: 11,
@@ -137,7 +141,7 @@ class MonitorTab extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 '${temp.toStringAsFixed(1)}°C',
-                style: GoogleFonts.outfit(
+                style: GoogleFonts.inter(
                   color: JamuTheme.textPrimary,
                   fontWeight: FontWeight.bold,
                   fontSize: 44,
@@ -161,7 +165,7 @@ class MonitorTab extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       status.toUpperCase(),
-                      style: GoogleFonts.plusJakartaSans(
+                      style: GoogleFonts.inter(
                         color: JamuTheme.primaryGreen,
                         fontWeight: FontWeight.bold,
                         fontSize: 10,
@@ -199,7 +203,7 @@ class MonitorTab extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             title,
-            style: GoogleFonts.plusJakartaSans(
+            style: GoogleFonts.inter(
               color: JamuTheme.textLight,
               fontWeight: FontWeight.bold,
               fontSize: 10,
@@ -209,11 +213,69 @@ class MonitorTab extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
-            style: GoogleFonts.outfit(
+            style: GoogleFonts.inter(
               color: JamuTheme.textPrimary,
               fontWeight: FontWeight.bold,
               fontSize: 18,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMotorControlCard(JamuProvider provider) {
+    bool isMotorOn = provider.boilerData.status != 'OFF';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: JamuTheme.cardColor,
+        borderRadius: JamuTheme.cardRadius,
+        border: Border.all(color: JamuTheme.borderLight),
+        boxShadow: JamuTheme.softShadow,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isMotorOn ? JamuTheme.primaryGreen.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.power_settings_new_rounded,
+                  color: isMotorOn ? JamuTheme.primaryGreen : Colors.red,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Mesin Pengaduk',
+                    style: JamuTheme.titleMedium.copyWith(fontSize: 16),
+                  ),
+                  Text(
+                    isMotorOn ? 'Motor Sedang Berjalan' : 'Motor Mati',
+                    style: JamuTheme.bodySmall.copyWith(
+                      color: isMotorOn ? JamuTheme.primaryGreen : Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Switch(
+            value: isMotorOn,
+            activeColor: JamuTheme.primaryGreen,
+            onChanged: (value) {
+              provider.toggleMotor(value);
+            },
           ),
         ],
       ),
@@ -270,7 +332,7 @@ class MonitorTab extends StatelessWidget {
               ),
               Text(
                 '+0.2°C High',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.inter(
                   color: JamuTheme.primaryGreenLight,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
@@ -318,7 +380,7 @@ class MonitorTab extends StatelessWidget {
                           space: 4,
                           child: Text(
                             text,
-                            style: GoogleFonts.plusJakartaSans(
+                            style: GoogleFonts.inter(
                               color: JamuTheme.textLight,
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -425,7 +487,7 @@ class MonitorTab extends StatelessWidget {
               },
               child: Text(
                 'LIHAT SEMUA',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.inter(
                   color: JamuTheme.primaryGreenLight,
                   fontWeight: FontWeight.bold,
                   fontSize: 11,
@@ -492,7 +554,7 @@ class MonitorTab extends StatelessWidget {
                   // Temperature value
                   Text(
                     '${reading.temperature.toStringAsFixed(1)}°C',
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.inter(
                       color: JamuTheme.textPrimary,
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
