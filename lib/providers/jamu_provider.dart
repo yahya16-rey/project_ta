@@ -18,6 +18,7 @@ class JamuProvider with ChangeNotifier {
   String _lastUpdatedTime = "10:30 WIB";
   
   double _totalDailyRevenue = 0.0;
+  double _totalWeeklyRevenue = 0.0;
   double _totalMonthlyRevenue = 0.0;
   double _totalYearlyRevenue = 0.0;
   double _revenuePercentageIncrease = 0.0;
@@ -50,6 +51,7 @@ class JamuProvider with ChangeNotifier {
   double get targetTemperature => _targetTemperature;
   String get lastUpdatedTime => _lastUpdatedTime;
   double get totalDailyRevenue => _totalDailyRevenue;
+  double get totalWeeklyRevenue => _totalWeeklyRevenue;
   double get totalMonthlyRevenue => _totalMonthlyRevenue;
   double get totalYearlyRevenue => _totalYearlyRevenue;
   double get revenuePercentageIncrease => _revenuePercentageIncrease;
@@ -109,6 +111,7 @@ class JamuProvider with ChangeNotifier {
 
     // Load Revenue
     _totalDailyRevenue = prefs.getDouble('totalDailyRevenue') ?? 0.0;
+    _totalWeeklyRevenue = prefs.getDouble('totalWeeklyRevenue') ?? 0.0;
     _totalMonthlyRevenue = prefs.getDouble('totalMonthlyRevenue') ?? 0.0;
     _totalYearlyRevenue = prefs.getDouble('totalYearlyRevenue') ?? 0.0;
     _transactionsCountToday = prefs.getInt('transactionsCountToday') ?? 0;
@@ -127,6 +130,7 @@ class JamuProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     prefs.setString('catalogMenu', jsonEncode(_catalogMenu.map((e) => e.toMap()).toList()));
     prefs.setDouble('totalDailyRevenue', _totalDailyRevenue);
+    prefs.setDouble('totalWeeklyRevenue', _totalWeeklyRevenue);
     prefs.setDouble('totalMonthlyRevenue', _totalMonthlyRevenue);
     prefs.setDouble('totalYearlyRevenue', _totalYearlyRevenue);
     prefs.setInt('transactionsCountToday', _transactionsCountToday);
@@ -247,6 +251,12 @@ class JamuProvider with ChangeNotifier {
     }
   }
 
+  bool _isSameWeek(DateTime d1, DateTime d2) {
+    final startOfWeek1 = d1.subtract(Duration(days: d1.weekday - 1));
+    final startOfWeek2 = d2.subtract(Duration(days: d2.weekday - 1));
+    return startOfWeek1.year == startOfWeek2.year && startOfWeek1.month == startOfWeek2.month && startOfWeek1.day == startOfWeek2.day;
+  }
+
   Future<void> _syncRevenueFromTransactions() async {
     if (!_isFirebaseConnected) return;
 
@@ -258,6 +268,7 @@ class JamuProvider with ChangeNotifier {
       final snapshot = await FirebaseFirestore.instance.collection('transactions').get();
       
       double daily = 0;
+      double weekly = 0;
       double monthly = 0;
       double yearly = 0;
       int countToday = 0;
@@ -280,6 +291,10 @@ class JamuProvider with ChangeNotifier {
         if (t.year == now.year) {
           yearly += amount;
           
+          if (_isSameWeek(t, now)) {
+            weekly += amount;
+          }
+
           if (t.month == now.month) {
             monthly += amount;
             // Add to daily index (day is 1-indexed, so -1 for array)
@@ -294,6 +309,7 @@ class JamuProvider with ChangeNotifier {
       }
 
       _totalDailyRevenue = daily;
+      _totalWeeklyRevenue = weekly;
       _totalMonthlyRevenue = monthly;
       _totalYearlyRevenue = yearly;
       _transactionsCountToday = countToday;
@@ -320,6 +336,13 @@ class JamuProvider with ChangeNotifier {
   void _setupEmptyState() {
     _isFirebaseConnected = false;
     _isLoading = false;
+    _tempHistory = [
+      TemperatureReading(time: "10:30 WIB", temperature: 32.4, status: "Suhu Stabil"),
+      TemperatureReading(time: "10:15 WIB", temperature: 32.2, status: "Suhu Stabil"),
+      TemperatureReading(time: "10:00 WIB", temperature: 31.8, status: "Penyesuaian Api"),
+      TemperatureReading(time: "09:45 WIB", temperature: 32.1, status: "Suhu Stabil"),
+      TemperatureReading(time: "09:30 WIB", temperature: 30.5, status: "Inisiasi Proses"),
+    ];
     notifyListeners();
   }
 
@@ -384,7 +407,8 @@ class JamuProvider with ChangeNotifier {
         });
         
         final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-        final String detailDesc = '${_cartItems.length} Product\n' + _cartItems.map((e) {
+        final int totalQtyCheckout = _cartItems.fold(0, (sum, item) => sum + item.quantity);
+        final String detailDesc = '$totalQtyCheckout Product\n' + _cartItems.map((e) {
           final total = e.quantity * e.product.price;
           return '${e.quantity} ${e.product.name} Rp ${currencyFormat.format(total).replaceAll('Rp ', '').replaceAll(',', '.')}';
         }).join('\n');
@@ -437,7 +461,8 @@ class JamuProvider with ChangeNotifier {
     }
     
     final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final String detailDesc = '${_cartItems.length} Product\n' + _cartItems.map((e) {
+    final int totalQtyCheckoutLocal = _cartItems.fold(0, (sum, item) => sum + item.quantity);
+    final String detailDesc = '$totalQtyCheckoutLocal Product\n' + _cartItems.map((e) {
       final total = e.quantity * e.product.price;
       return '${e.quantity} ${e.product.name} Rp ${currencyFormat.format(total).replaceAll('Rp ', '').replaceAll(',', '.')}';
     }).join('\n');
@@ -468,6 +493,7 @@ class JamuProvider with ChangeNotifier {
     }
 
     _totalMonthlyRevenue += totalAmount;
+    _totalWeeklyRevenue += totalAmount;
     _totalDailyRevenue += totalAmount;
     _totalYearlyRevenue += totalAmount;
     

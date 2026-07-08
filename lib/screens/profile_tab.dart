@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
@@ -151,7 +152,9 @@ class ProfileTab extends StatelessWidget {
                 image: DecorationImage(
                   image: authProvider.userPhotoPath.startsWith('assets/')
                       ? AssetImage(authProvider.userPhotoPath) as ImageProvider
-                      : FileImage(File(authProvider.userPhotoPath)),
+                      : kIsWeb
+                          ? NetworkImage(authProvider.userPhotoPath) as ImageProvider
+                          : FileImage(File(authProvider.userPhotoPath)) as ImageProvider,
                   fit: BoxFit.cover,
                 ),
               ),

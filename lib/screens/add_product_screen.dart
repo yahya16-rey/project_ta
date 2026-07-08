@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -113,12 +114,19 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     child: _imagePath != null
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(16),
-                            child: Image.file(
-                              File(_imagePath!),
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              height: 180,
-                            ),
+                            child: kIsWeb
+                                ? Image.network(
+                                    _imagePath!,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    height: 180,
+                                  )
+                                : Image.file(
+                                    File(_imagePath!),
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    height: 180,
+                                  ),
                           )
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,

@@ -91,6 +91,24 @@ class MonitorTab extends StatelessWidget {
   }
 
   Widget _buildCircularGauge(double temp, String status) {
+    String tempStatusText;
+    Color tempColor;
+    Color tempBgColor;
+
+    if (temp < 50) {
+      tempStatusText = "KURANG PANAS";
+      tempColor = Colors.blue;
+      tempBgColor = Colors.blue.withValues(alpha: 0.1);
+    } else if (temp <= 70) {
+      tempStatusText = "NORMAL";
+      tempColor = JamuTheme.primaryGreen;
+      tempBgColor = JamuTheme.statusGreenBg;
+    } else {
+      tempStatusText = "TERLALU PANAS";
+      tempColor = Colors.red;
+      tempBgColor = Colors.red.withValues(alpha: 0.1);
+    }
+
     return Container(
       width: 210,
       height: 210,
@@ -109,7 +127,7 @@ class MonitorTab extends StatelessWidget {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
+                  color: Colors.black.withValues(alpha: 0.02),
                   blurRadius: 16,
                   spreadRadius: 4,
                 )
@@ -120,8 +138,8 @@ class MonitorTab extends StatelessWidget {
           CustomPaint(
             size: const Size(200, 200),
             painter: GaugeRingPainter(
-              progress: (temp - 25.0) / 15.0, // Scale temperature e.g., from 25 to 40
-              color: JamuTheme.primaryGreen,
+              progress: (temp / 100.0).clamp(0.0, 1.0),
+              color: tempColor,
               trackColor: const Color(0xFFE8ECEF),
             ),
           ),
@@ -151,22 +169,22 @@ class MonitorTab extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: JamuTheme.statusGreenBg,
+                  color: tempBgColor,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.circle,
                       size: 6,
-                      color: JamuTheme.primaryGreenLight,
+                      color: tempColor,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      status.toUpperCase(),
+                      tempStatusText,
                       style: GoogleFonts.inter(
-                        color: JamuTheme.primaryGreen,
+                        color: tempColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 10,
                         letterSpacing: 0.5,

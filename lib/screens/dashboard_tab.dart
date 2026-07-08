@@ -272,7 +272,8 @@ class DashboardTab extends StatelessWidget {
                     child: InkWell(
                       borderRadius: JamuTheme.innerCardRadius,
                       onTap: () {
-                        final formattedProducts = '${items.length} Product\n' + items.map((e) {
+                        final int totalQty = items.fold(0, (sum, item) => sum + (item.quantity as num).toInt());
+                        final formattedProducts = '$totalQty Product\n' + items.map((e) {
                           final nama = e.name;
                           final qty = e.quantity;
                           final harga = e.price;
@@ -591,15 +592,16 @@ class _RevenueCarouselState extends State<RevenueCarousel> {
     final monthStr = '$monthName ${now.year}';
     final yearStr = '${now.year}';
 
-    final tabs = ['Hari Ini', 'Bulan Ini', 'Tahun Ini'];
+    final tabs = ['Hari Ini', 'Minggu Ini', 'Bulan Ini', 'Tahun Ini'];
     final amounts = [
       widget.provider.totalDailyRevenue,
+      widget.provider.totalWeeklyRevenue,
       widget.provider.totalMonthlyRevenue,
       widget.provider.totalYearlyRevenue,
     ];
-    final dates = [todayStr, monthStr, yearStr];
-    // Map indices to the filter index in TransactionHistoryScreen (0: Hari, 1: Bulan, 2: Tahun)
-    final filterIndices = [0, 1, 2];
+    final dates = [todayStr, 'Minggu Ini', monthStr, yearStr];
+    // Map indices to the filter index in TransactionHistoryScreen (0: Hari, 1: Minggu, 2: Bulan, 3: Tahun)
+    final filterIndices = [0, 1, 2, 3];
 
     return Column(
       children: [
@@ -610,7 +612,7 @@ class _RevenueCarouselState extends State<RevenueCarousel> {
             onPageChanged: (index) {
               setState(() => _currentIndex = index);
             },
-            itemCount: 3,
+            itemCount: 4,
             itemBuilder: (context, index) {
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 2.0),
@@ -699,7 +701,7 @@ class _RevenueCarouselState extends State<RevenueCarousel> {
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(3, (index) => AnimatedContainer(
+          children: List.generate(4, (index) => AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             margin: const EdgeInsets.symmetric(horizontal: 4),
             width: _currentIndex == index ? 24 : 8,

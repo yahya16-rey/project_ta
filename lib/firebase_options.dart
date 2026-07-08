@@ -20,12 +20,12 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDummyKeyWebPlaceholder12345',
-    appId: '1:1234567890:web:dummyappid',
-    messagingSenderId: '1234567890',
-    projectId: 'jamu-herbal-mock-project',
-    authDomain: 'jamu-herbal-mock-project.firebaseapp.com',
-    storageBucket: 'jamu-herbal-mock-project.appspot.com',
+    apiKey: 'AIzaSyAQTP3TyLYXCWybZUzwz4OmydQeC5RNbrs',
+    appId: '1:825392939910:web:75c56ccbd134495e2c6207',
+    messagingSenderId: '825392939910',
+    projectId: 'project-ta-c6051',
+    authDomain: 'project-ta-c6051.firebaseapp.com',
+    storageBucket: 'project-ta-c6051.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(

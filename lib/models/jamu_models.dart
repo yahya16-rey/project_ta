@@ -1,3 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+
 class BoilerData {
   final double temperature;
   final String status;
@@ -266,8 +269,19 @@ class TemperatureReading {
   });
 
   factory TemperatureReading.fromMap(Map<String, dynamic> map) {
+    String timeStr = '10:30 WIB';
+    if (map['timestamp'] != null) {
+      if (map['timestamp'] is Timestamp) {
+        timeStr = DateFormat('HH:mm').format((map['timestamp'] as Timestamp).toDate()) + ' WIB';
+      } else {
+        timeStr = map['timestamp'].toString();
+      }
+    } else if (map['time'] != null) {
+      timeStr = map['time'].toString();
+    }
+
     return TemperatureReading(
-      time: map['time'] ?? '10:30',
+      time: timeStr,
       temperature: (map['temperature'] ?? 32.4).toDouble(),
       status: map['status'] ?? 'Suhu Stabil',
     );

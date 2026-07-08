@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -107,7 +108,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       border: Border.all(color: JamuTheme.borderLight, width: 4),
                       image: DecorationImage(
                         image: _photoPath != null && !_photoPath!.startsWith('assets/')
-                            ? FileImage(File(_photoPath!)) as ImageProvider
+                            ? (kIsWeb
+                                ? NetworkImage(_photoPath!) as ImageProvider
+                                : FileImage(File(_photoPath!)) as ImageProvider)
                             : AssetImage(_photoPath ?? 'assets/images/logo.png'),
                         fit: BoxFit.cover,
                       ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -364,11 +365,17 @@ class _RevenueTabState extends State<RevenueTab> {
                                       fit: BoxFit.cover,
                                       errorBuilder: (ctx, err, stack) => const Icon(Icons.image_not_supported, color: Colors.grey),
                                     )
-                                  : Image.file(
-                                      File(menu.imagePath),
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (ctx, err, stack) => const Icon(Icons.image_not_supported, color: Colors.grey),
-                                    ),
+                                  : kIsWeb
+                                      ? Image.network(
+                                          menu.imagePath,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (ctx, err, stack) => const Icon(Icons.image_not_supported, color: Colors.grey),
+                                        )
+                                      : Image.file(
+                                          File(menu.imagePath),
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (ctx, err, stack) => const Icon(Icons.image_not_supported, color: Colors.grey),
+                                        ),
                             ),
                           ),
                           Positioned(
@@ -469,13 +476,21 @@ class _RevenueTabState extends State<RevenueTab> {
                                 fit: BoxFit.cover,
                                 errorBuilder: (ctx, err, stack) => const Icon(Icons.image, size: 80),
                               )
-                            : Image.file(
-                                File(menu.imagePath),
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
-                                errorBuilder: (ctx, err, stack) => const Icon(Icons.image, size: 80),
-                              ),
+                            : kIsWeb
+                                ? Image.network(
+                                    menu.imagePath,
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (ctx, err, stack) => const Icon(Icons.image, size: 80),
+                                  )
+                                : Image.file(
+                                    File(menu.imagePath),
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (ctx, err, stack) => const Icon(Icons.image, size: 80),
+                                  ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(

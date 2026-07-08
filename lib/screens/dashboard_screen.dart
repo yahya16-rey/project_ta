@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -89,10 +90,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               authProvider.userPhotoPath,
                               fit: BoxFit.cover,
                             )
-                          : Image.file(
-                              File(authProvider.userPhotoPath),
-                              fit: BoxFit.cover,
-                            ),
+                          : kIsWeb
+                              ? Image.network(
+                                  authProvider.userPhotoPath,
+                                  fit: BoxFit.cover,
+                                )
+                              : Image.file(
+                                  File(authProvider.userPhotoPath),
+                                  fit: BoxFit.cover,
+                                ),
                     ),
                   ),
                 ),

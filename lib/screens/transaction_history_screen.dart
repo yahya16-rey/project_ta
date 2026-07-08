@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:flutter/services.dart';
 import '../theme/theme.dart';
 
 class TransactionHistoryScreen extends StatefulWidget {
@@ -18,13 +22,19 @@ class TransactionHistoryScreen extends StatefulWidget {
 
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   late int _selectedFilterIndex;
-  final List<String> _filters = ['Harian', 'Bulanan', 'Tahunan', 'Semua'];
+  final List<String> _filters = ['Harian', 'Mingguan', 'Bulanan', 'Tahunan', 'Semua'];
   final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
   @override
   void initState() {
     super.initState();
     _selectedFilterIndex = widget.initialFilterIndex;
+  }
+
+  bool _isSameWeek(DateTime d1, DateTime d2) {
+    final startOfWeek1 = d1.subtract(Duration(days: d1.weekday - 1));
+    final startOfWeek2 = d2.subtract(Duration(days: d2.weekday - 1));
+    return startOfWeek1.year == startOfWeek2.year && startOfWeek1.month == startOfWeek2.month && startOfWeek1.day == startOfWeek2.day;
   }
 
   bool _isSameDay(DateTime d1, DateTime d2) {
@@ -54,11 +64,13 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       switch (_selectedFilterIndex) {
         case 0: // Harian
           return _isSameDay(date, now);
-        case 1: // Bulanan
-          return _isSameMonth(date, now) || _isSameMonth(date, DateTime(now.year, now.month - 1, 1));
-        case 2: // Tahunan
-          return _isSameYear(date, now);
-        case 3: // Semua
+        case 1: // Mingguan
+          return _isSameMonth(date, now); // Ambil semua bulan ini untuk di-group per minggu
+        case 2: // Bulanan
+          return _isSameYear(date, now); // Ambil semua tahun ini untuk di-group
+        case 3: // Tahunan
+          return true; // Ambil semua untuk di-group
+        case 4: // Semua
         default:
           return true;
       }
@@ -92,6 +104,14 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             color: JamuTheme.textPrimary,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.print_rounded, color: JamuTheme.primaryGreen),
+            tooltip: 'Export PDF',
+            onPressed: () => _exportToPdf(context),
+          ),
+          const SizedBox(width: 8),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: Padding(
@@ -149,29 +169,60 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
           }
 
           final listItems = [];
-          if (_selectedFilterIndex == 1) { // Bulanan
-            final now = DateTime.now();
-            final prevMonth = DateTime(now.year, now.month - 1, 1);
-            
-            bool addedCurrentHeader = false;
-            bool addedPrevHeader = false;
-
-            for (var doc in filteredDocs) {
-              final date = _getDate(doc);
-              if (_isSameMonth(date, now)) {
-                if (!addedCurrentHeader) {
-                  listItems.add('Bulan Saat Ini');
-                  addedCurrentHeader = true;
+          if (_selectedFilterIndex == 1) { // Mingguan
+             int maxWeeks = 4;
+             for (int i = maxWeeks; i >= 1; i--) {
+                listItems.add('Minggu $i');
+                bool hasItem = false;
+                for (var doc in filteredDocs) {
+                   int day = _getDate(doc).day;
+                   int weekNum = ((day - 1) ~/ 7) + 1;
+                   if (weekNum > maxWeeks) weekNum = maxWeeks; // Clamp days 29+ into Week 4
+                   if (weekNum == i) {
+                      listItems.add(doc);
+                      hasItem = true;
+                   }
                 }
-                listItems.add(doc);
-              } else if (_isSameMonth(date, prevMonth)) {
-                if (!addedPrevHeader) {
-                  listItems.add('Bulan Sebelumnya');
-                  addedPrevHeader = true;
+                if (!hasItem) {
+                   listItems.add('EMPTY_STATE');
                 }
-                listItems.add(doc);
-              }
-            }
+             }
+          } else if (_selectedFilterIndex == 2) { // Bulanan
+             final List<String> monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+             for (int i = 12; i >= 1; i--) {
+                listItems.add('${monthNames[i-1]} ${DateTime.now().year}');
+                bool hasItem = false;
+                for (var doc in filteredDocs) {
+                   if (_getDate(doc).month == i) {
+                      listItems.add(doc);
+                      hasItem = true;
+                   }
+                }
+                if (!hasItem) {
+                   listItems.add('EMPTY_STATE');
+                }
+             }
+          } else if (_selectedFilterIndex == 3) { // Tahunan
+             int minYear = DateTime.now().year;
+             int maxYear = DateTime.now().year;
+             for (var doc in filteredDocs) {
+                int y = _getDate(doc).year;
+                if (y < minYear) minYear = y;
+                if (y > maxYear) maxYear = y;
+             }
+             for (int y = maxYear; y >= minYear; y--) {
+                listItems.add('Tahun $y');
+                bool hasItem = false;
+                for (var doc in filteredDocs) {
+                   if (_getDate(doc).year == y) {
+                      listItems.add(doc);
+                      hasItem = true;
+                   }
+                }
+                if (!hasItem) {
+                   listItems.add('EMPTY_STATE');
+                }
+             }
           } else {
             listItems.addAll(filteredDocs);
           }
@@ -181,7 +232,12 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             itemCount: listItems.length,
             itemBuilder: (context, index) {
               final item = listItems[index];
-              if (item is String) {
+              if (item == 'EMPTY_STATE') {
+                return const Padding(
+                  padding: EdgeInsets.only(bottom: 16),
+                  child: Text('Belum ada transaksi di periode ini.', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+                );
+              } else if (item is String) {
                 return Padding(
                   padding: EdgeInsets.only(top: index == 0 ? 0 : 16, bottom: 12),
                   child: Text(
@@ -487,5 +543,111 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
         );
       },
     );
+  }
+
+  Future<void> _exportToPdf(BuildContext context) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Menyiapkan dokumen PDF...'), duration: Duration(seconds: 2)),
+      );
+
+      final snapshot = await FirebaseFirestore.instance.collection('transactions').orderBy('timestamp', descending: true).get();
+      final filteredDocs = _filterTransactions(snapshot.docs);
+
+      if (filteredDocs.isEmpty) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tidak ada transaksi untuk diekspor.')),
+        );
+        return;
+      }
+
+      final pdf = pw.Document();
+      
+      final String filterName = _filters[_selectedFilterIndex];
+      final String reportDate = DateFormat('dd MMMM yyyy, HH:mm').format(DateTime.now());
+      
+      double totalPendapatan = 0;
+      for (var doc in filteredDocs) {
+        final data = doc.data() as Map<String, dynamic>;
+        totalPendapatan += (data['amount'] ?? 0).toDouble();
+      }
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          build: (pw.Context context) {
+            return [
+              pw.Header(
+                level: 0,
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text('Laporan Transaksi', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('Jamu Herbal', style: const pw.TextStyle(fontSize: 16, color: PdfColors.green700)),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Text('Periode: $filterName', style: const pw.TextStyle(fontSize: 14)),
+              pw.Text('Dicetak pada: $reportDate', style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey700)),
+              pw.SizedBox(height: 20),
+              
+              pw.TableHelper.fromTextArray(
+                context: context,
+                border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+                headerAlignment: pw.Alignment.centerLeft,
+                headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                cellStyle: const pw.TextStyle(fontSize: 10),
+                cellAlignment: pw.Alignment.centerLeft,
+                data: <List<String>>[
+                  <String>['No', 'Tanggal', 'Item', 'Total (Rp)'],
+                  ...List.generate(filteredDocs.length, (index) {
+                    final data = filteredDocs[index].data() as Map<String, dynamic>;
+                    final date = _getDate(filteredDocs[index]);
+                    final timeStr = DateFormat('dd MMM yyyy, HH:mm').format(date);
+                    final totalAmount = (data['amount'] ?? 0).toDouble();
+                    
+                    final itemsList = data['items'] as List<dynamic>? ?? [];
+                    final List<Map<String, dynamic>> items = itemsList.map((e) => e as Map<String, dynamic>).toList();
+                    String itemString = items.map((e) => "${e['nama_produk']} x${e['jumlah']}").join(", ");
+
+                    return [
+                      (index + 1).toString(),
+                      timeStr,
+                      itemString,
+                      currencyFormat.format(totalAmount).replaceAll('Rp ', '').replaceAll(',', '.')
+                    ];
+                  }),
+                ],
+              ),
+              
+              pw.SizedBox(height: 20),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.end,
+                children: [
+                  pw.Text(
+                    'Total Pendapatan: ${currencyFormat.format(totalPendapatan).replaceAll(',', '.')}',
+                    style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.green700),
+                  ),
+                ]
+              ),
+            ];
+          },
+        ),
+      );
+
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+        name: 'Laporan_Transaksi_${filterName}_$reportDate.pdf',
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengekspor PDF: $e')),
+      );
+    }
   }
 }
