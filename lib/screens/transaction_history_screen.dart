@@ -25,51 +25,44 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   final List<String> _filters = ['Harian', 'Mingguan', 'Bulanan', 'Tahunan', 'Semua'];
   final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
+  int? _selectedWeek;
+  int? _selectedMonth;
+  int? _selectedYear;
+
   @override
   void initState() {
     super.initState();
     _selectedFilterIndex = widget.initialFilterIndex;
-  }
-
-  bool _isSameWeek(DateTime d1, DateTime d2) {
-    final startOfWeek1 = d1.subtract(Duration(days: d1.weekday - 1));
-    final startOfWeek2 = d2.subtract(Duration(days: d2.weekday - 1));
-    return startOfWeek1.year == startOfWeek2.year && startOfWeek1.month == startOfWeek2.month && startOfWeek1.day == startOfWeek2.day;
+    
+    final now = DateTime.now();
+    _selectedWeek = ((now.day - 1) ~/ 7) + 1;
+    if (_selectedWeek! > 4) _selectedWeek = 4;
+    _selectedMonth = now.month;
+    _selectedYear = now.year;
   }
 
   bool _isSameDay(DateTime d1, DateTime d2) {
     return d1.year == d2.year && d1.month == d2.month && d1.day == d2.day;
   }
 
-  bool _isSameMonth(DateTime d1, DateTime d2) {
-    return d1.year == d2.year && d1.month == d2.month;
-  }
-
-  bool _isSameYear(DateTime d1, DateTime d2) {
-    return d1.year == d2.year;
-  }
-
   List<DocumentSnapshot> _filterTransactions(List<DocumentSnapshot> allDocs) {
     final now = DateTime.now();
     return allDocs.where((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      DateTime date;
-      if (data['timestamp'] == null) {
-        // Pending server sync, assume it just happened now
-        date = now;
-      } else {
-        date = (data['timestamp'] as Timestamp).toDate();
-      }
+      final date = _getDate(doc);
 
       switch (_selectedFilterIndex) {
         case 0: // Harian
           return _isSameDay(date, now);
         case 1: // Mingguan
-          return _isSameMonth(date, now); // Ambil semua bulan ini untuk di-group per minggu
+          if (date.month != now.month || date.year != now.year) return false;
+          int weekNum = ((date.day - 1) ~/ 7) + 1;
+          if (weekNum > 4) weekNum = 4;
+          return weekNum == _selectedWeek;
         case 2: // Bulanan
-          return _isSameYear(date, now); // Ambil semua tahun ini untuk di-group
+          if (date.year != now.year) return false;
+          return date.month == _selectedMonth;
         case 3: // Tahunan
-          return true; // Ambil semua untuk di-group
+          return date.year == _selectedYear;
         case 4: // Semua
         default:
           return true;
@@ -83,6 +76,58 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       return DateTime.now();
     }
     return (data['timestamp'] as Timestamp).toDate();
+  }
+
+  List<Widget> _buildSubFilters() {
+    List<String> items = [];
+    int selectedIndex = 0;
+    Function(int) onSelect = (i) {};
+
+    if (_selectedFilterIndex == 1) { // Mingguan
+      items = ['Minggu 1', 'Minggu 2', 'Minggu 3', 'Minggu 4'];
+      selectedIndex = (_selectedWeek ?? 1) - 1;
+      onSelect = (i) => setState(() => _selectedWeek = i + 1);
+    } else if (_selectedFilterIndex == 2) { // Bulanan
+      items = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+      selectedIndex = (_selectedMonth ?? 1) - 1;
+      onSelect = (i) => setState(() => _selectedMonth = i + 1);
+    } else if (_selectedFilterIndex == 3) { // Tahunan
+      int currentYear = DateTime.now().year;
+      items = [for (int i = 2024; i <= currentYear + 1; i++) i.toString()];
+      selectedIndex = items.indexOf((_selectedYear ?? currentYear).toString());
+      if (selectedIndex == -1) {
+        selectedIndex = 0;
+        _selectedYear = int.parse(items[0]);
+      }
+      onSelect = (i) => setState(() => _selectedYear = int.parse(items[i]));
+    }
+
+    return List.generate(items.length, (index) {
+      final isSelected = selectedIndex == index;
+      return GestureDetector(
+        onTap: () => onSelect(index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.only(right: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? JamuTheme.primaryGreen.withOpacity(0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected ? JamuTheme.primaryGreen : JamuTheme.borderLight,
+            ),
+          ),
+          child: Text(
+            items[index],
+            style: GoogleFonts.inter(
+              color: isSelected ? JamuTheme.primaryGreen : JamuTheme.textSecondary,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   @override
@@ -113,41 +158,55 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
           const SizedBox(width: 8),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(_filters.length, (index) {
-                final isSelected = _selectedFilterIndex == index;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedFilterIndex = index;
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? JamuTheme.primaryGreen : Colors.transparent,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isSelected ? JamuTheme.primaryGreen : JamuTheme.borderLight,
+          preferredSize: Size.fromHeight(_selectedFilterIndex >= 1 && _selectedFilterIndex <= 3 ? 100 : 50),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+                child: Row(
+                  children: List.generate(_filters.length, (index) {
+                    final isSelected = _selectedFilterIndex == index;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedFilterIndex = index;
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? JamuTheme.primaryGreen : Colors.transparent,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected ? JamuTheme.primaryGreen : JamuTheme.borderLight,
+                          ),
+                        ),
+                        child: Text(
+                          _filters[index],
+                          style: GoogleFonts.inter(
+                            color: isSelected ? Colors.white : JamuTheme.textSecondary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      _filters[index],
-                      style: GoogleFonts.inter(
-                        color: isSelected ? Colors.white : JamuTheme.textSecondary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
+                    );
+                  }),
+                ),
+              ),
+              if (_selectedFilterIndex >= 1 && _selectedFilterIndex <= 3)
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5).copyWith(bottom: 10),
+                  child: Row(
+                    children: _buildSubFilters(),
                   ),
-                );
-              }),
-            ),
+                ),
+            ],
           ),
         ),
       ),
@@ -168,93 +227,14 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             return _buildEmptyState();
           }
 
-          final listItems = [];
-          if (_selectedFilterIndex == 1) { // Mingguan
-             int maxWeeks = 4;
-             for (int i = maxWeeks; i >= 1; i--) {
-                listItems.add('Minggu $i');
-                bool hasItem = false;
-                for (var doc in filteredDocs) {
-                   int day = _getDate(doc).day;
-                   int weekNum = ((day - 1) ~/ 7) + 1;
-                   if (weekNum > maxWeeks) weekNum = maxWeeks; // Clamp days 29+ into Week 4
-                   if (weekNum == i) {
-                      listItems.add(doc);
-                      hasItem = true;
-                   }
-                }
-                if (!hasItem) {
-                   listItems.add('EMPTY_STATE');
-                }
-             }
-          } else if (_selectedFilterIndex == 2) { // Bulanan
-             final List<String> monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-             for (int i = 12; i >= 1; i--) {
-                listItems.add('${monthNames[i-1]} ${DateTime.now().year}');
-                bool hasItem = false;
-                for (var doc in filteredDocs) {
-                   if (_getDate(doc).month == i) {
-                      listItems.add(doc);
-                      hasItem = true;
-                   }
-                }
-                if (!hasItem) {
-                   listItems.add('EMPTY_STATE');
-                }
-             }
-          } else if (_selectedFilterIndex == 3) { // Tahunan
-             int minYear = DateTime.now().year;
-             int maxYear = DateTime.now().year;
-             for (var doc in filteredDocs) {
-                int y = _getDate(doc).year;
-                if (y < minYear) minYear = y;
-                if (y > maxYear) maxYear = y;
-             }
-             for (int y = maxYear; y >= minYear; y--) {
-                listItems.add('Tahun $y');
-                bool hasItem = false;
-                for (var doc in filteredDocs) {
-                   if (_getDate(doc).year == y) {
-                      listItems.add(doc);
-                      hasItem = true;
-                   }
-                }
-                if (!hasItem) {
-                   listItems.add('EMPTY_STATE');
-                }
-             }
-          } else {
-            listItems.addAll(filteredDocs);
-          }
-
           return ListView.builder(
             padding: const EdgeInsets.all(20),
-            itemCount: listItems.length,
+            itemCount: filteredDocs.length,
             itemBuilder: (context, index) {
-              final item = listItems[index];
-              if (item == 'EMPTY_STATE') {
-                return const Padding(
-                  padding: EdgeInsets.only(bottom: 16),
-                  child: Text('Belum ada transaksi di periode ini.', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
-                );
-              } else if (item is String) {
-                return Padding(
-                  padding: EdgeInsets.only(top: index == 0 ? 0 : 16, bottom: 12),
-                  child: Text(
-                    item, 
-                    style: GoogleFonts.inter(
-                      color: JamuTheme.primaryGreen, 
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                );
-              } else {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _buildTransactionCard(item as DocumentSnapshot),
-                );
-              }
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildTransactionCard(filteredDocs[index]),
+              );
             },
           );
         },
@@ -564,7 +544,15 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
 
       final pdf = pw.Document();
       
-      final String filterName = _filters[_selectedFilterIndex];
+      String filterName = _filters[_selectedFilterIndex];
+      if (_selectedFilterIndex == 1) {
+        filterName = 'Minggu $_selectedWeek';
+      } else if (_selectedFilterIndex == 2) {
+        final monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        filterName = monthNames[(_selectedMonth ?? 1) - 1];
+      } else if (_selectedFilterIndex == 3) {
+        filterName = 'Tahun $_selectedYear';
+      }
       final String reportDate = DateFormat('dd MMMM yyyy, HH:mm').format(DateTime.now());
       
       double totalPendapatan = 0;
